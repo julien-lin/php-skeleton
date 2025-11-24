@@ -251,6 +251,32 @@ class Installer
                 unlink($path);
             }
         }
+        
+        self::removeInstallerFromWww($baseDir);
+    }
+    
+    private static function removeInstallerFromWww(string $baseDir): void
+    {
+        $wwwDir = $baseDir . '/www';
+        $installerPath = $wwwDir . '/src/Installer.php';
+        
+        if (file_exists($installerPath)) {
+            unlink($installerPath);
+        }
+        
+        $srcDir = $wwwDir . '/src';
+        if (is_dir($srcDir)) {
+            $files = scandir($srcDir);
+            if (count($files) === 3) {
+                $hasOnlyKeepFiles = true;
+                foreach ($files as $file) {
+                    if ($file !== '.' && $file !== '..' && $file !== 'Installer.php' && !is_dir($srcDir . '/' . $file)) {
+                        $hasOnlyKeepFiles = false;
+                        break;
+                    }
+                }
+            }
+        }
     }
     
     private static function moveDirectory(string $source, string $target): void
