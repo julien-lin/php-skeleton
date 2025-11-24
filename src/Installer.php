@@ -223,18 +223,32 @@ class Installer
     
     private static function moveExistingFiles(string $baseDir, string $wwwDir): void
     {
-        $filesToMove = ['public', 'src', 'templates', 'config'];
+        $filesToMove = ['public', 'src', 'templates', 'config', 'vendor'];
         
         foreach ($filesToMove as $item) {
             $source = $baseDir . '/' . $item;
             $target = $wwwDir . '/' . $item;
             
             if (is_dir($source) && !is_dir($target)) {
-                if (is_dir($source)) {
-                    self::moveDirectory($source, $target);
-                }
+                self::moveDirectory($source, $target);
             } elseif (is_file($source) && !is_file($target)) {
                 rename($source, $target);
+            }
+        }
+        
+        self::cleanupRootFiles($baseDir);
+    }
+    
+    private static function cleanupRootFiles(string $baseDir): void
+    {
+        $filesToRemove = ['public', 'src', 'templates', 'config', 'vendor', 'composer.lock'];
+        
+        foreach ($filesToRemove as $item) {
+            $path = $baseDir . '/' . $item;
+            if (is_dir($path)) {
+                self::removeDirectory($path);
+            } elseif (is_file($path)) {
+                unlink($path);
             }
         }
     }
