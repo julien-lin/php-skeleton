@@ -41,6 +41,8 @@ class Installer
             }
         }
         
+        self::createPublicIndex($wwwDir . '/public', $installDoctrine, $installAuth);
+        
         self::displayCompletion($useDocker);
     }
     
@@ -209,7 +211,6 @@ class Installer
         }
         
         self::moveExistingFiles($baseDir, $wwwDir);
-        self::createPublicIndex($publicDir);
         self::createHtaccess($publicDir);
         self::createHeaderTemplate($templatesDir);
         self::createFooterTemplate($templatesDir);
@@ -671,7 +672,7 @@ HTACCESS;
         file_put_contents($publicDir . '/.htaccess', $content);
     }
     
-    private static function createPublicIndex(string $publicDir): void
+    private static function createPublicIndex(string $publicDir, bool $hasDoctrine, bool $hasAuth): void
     {
         $wwwDir = dirname($publicDir);
         $controllerDir = $wwwDir . '/src/Controller';
@@ -679,26 +680,7 @@ HTACCESS;
             mkdir($controllerDir, 0755, true);
         }
         
-        $indexContent = <<<'PHP'
-<?php
-
-declare(strict_types=1);
-
-require_once __DIR__ . '/../vendor/autoload.php';
-
-use JulienLinard\Core\Application;
-use App\Controller\HomeController;
-
-$app = Application::create(__DIR__ . '/..');
-$app->setViewsPath(__DIR__ . '/../views');
-$app->setPartialsPath(__DIR__ . '/../views/_templates');
-
-$router = $app->getRouter();
-$router->registerRoutes(HomeController::class);
-
-$app->start();
-$app->handle();
-PHP;
+        $indexContent = self::generateIndexContent($hasDoctrine, $hasAuth);
         
         $controllerContent = <<<'PHP'
 <?php
@@ -726,6 +708,105 @@ PHP;
         
         file_put_contents($publicDir . '/index.php', $indexContent);
         file_put_contents($controllerDir . '/HomeController.php', $controllerContent);
+    }
+    
+    private static function generateIndexContent(bool $hasDoctrine, bool $hasAuth): string
+    {
+        $content = <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+require_once __DIR__ . '/../vendor/autoload.php';
+
+use JulienLinard\Core\Application;
+use App\Controller\HomeController;
+PHP;
+
+        if ($hasDoctrine) {
+            $content .= "\nuse JulienLinard\Doctrine\EntityManager;";
+        }
+        
+        if ($hasAuth) {
+            $content .= "\nuse JulienLinard\Auth\AuthManager;";
+        }
+        
+        $content .= "\n\n";
+        
+        if ($hasDoctrine) {
+            $content .= <<<'PHP'
+$dbConfig = require __DIR__ . '/../config/database.php';
+
+PHP;
+        }
+        
+        $content .= <<<'PHP'
+$app = Application::create(__DIR__ . '/..');
+$app->setViewsPath(__DIR__ . '/../views');
+$app->setPartialsPath(__DIR__ . '/../views/_templates');
+
+if (file_exists(__DIR__ . '/../.env')) {
+    $app->loadEnv();
+}
+
+$debug = getenv('APP_DEBUG') === 'true' || getenv('APP_DEBUG') === '1';
+if (!defined('APP_DEBUG')) {
+    define('APP_DEBUG', $debug);
+}
+$app->getConfig()->set('app.debug', $debug);
+error_reporting($debug ? E_ALL : 0);
+ini_set('display_errors', $debug ? '1' : '0');
+
+ini_set('session.cookie_httponly', '1');
+ini_set('session.cookie_samesite', 'Strict');
+ini_set('session.use_strict_mode', '1');
+
+$container = $app->getContainer();
+PHP;
+
+        if ($hasDoctrine) {
+            $content .= <<<'PHP'
+
+$container->singleton(EntityManager::class, function() use ($dbConfig) {
+    return new EntityManager($dbConfig);
+});
+PHP;
+        }
+        
+        if ($hasAuth) {
+            if ($hasDoctrine) {
+                $content .= <<<'PHP'
+
+$container->singleton(AuthManager::class, function() use ($container) {
+    $em = $container->make(EntityManager::class);
+    return new AuthManager([
+        'user_class' => \App\Entity\User::class,
+        'entity_manager' => $em
+    ]);
+});
+PHP;
+            } else {
+                $content .= <<<'PHP'
+
+$container->singleton(AuthManager::class, function() {
+    return new AuthManager([
+        'user_class' => \App\Entity\User::class
+    ]);
+});
+PHP;
+            }
+        }
+        
+        $content .= <<<'PHP'
+
+$router = $app->getRouter();
+$router->registerRoutes(HomeController::class);
+
+$app->start();
+$app->handle();
+PHP;
+        
+        return $content;
     }
     
     private static function createHeaderTemplate(string $templatesDir): void
