@@ -22,7 +22,7 @@ class Installer
         $installDoctrine = self::askQuestion('Voulez-vous installer Doctrine ? (y/N)', false);
         $installAuth = self::askQuestion('Voulez-vous installer Auth ? (y/N)', false);
         
-        $baseDir = dirname(__DIR__, 2);
+        $baseDir = self::getProjectRoot();
         $wwwDir = $baseDir . '/www';
         
         if ($installDoctrine) {
@@ -171,12 +171,17 @@ class Installer
     {
         echo "\n🐳 Configuration Docker...\n";
         
-        $baseDir = dirname(__DIR__, 2);
+        $baseDir = self::getProjectRoot();
         
         self::createWwwStructure($baseDir);
         self::createDockerFiles($baseDir);
         
         echo "✅ Fichiers Docker créés.\n";
+    }
+    
+    private static function getProjectRoot(): string
+    {
+        return getcwd() ?: dirname(__DIR__, 1);
     }
     
     private static function createWwwStructure(string $baseDir): void
@@ -308,7 +313,7 @@ PHP;
     
     private static function createEnvFile(array $data): void
     {
-        $baseDir = dirname(__DIR__, 2);
+        $baseDir = self::getProjectRoot();
         $envPath = $baseDir . '/.env';
         
         $content = "# Configuration Docker\n";
