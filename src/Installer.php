@@ -208,14 +208,143 @@ class Installer
             mkdir($homeDir, 0755, true);
         }
         
+        self::moveExistingFiles($baseDir, $wwwDir);
         self::createPublicIndex($publicDir);
         self::createHtaccess($publicDir);
         self::createHeaderTemplate($templatesDir);
         self::createFooterTemplate($templatesDir);
         self::createHomeView($homeDir);
         self::copyComposerJson($baseDir, $wwwDir);
+        self::createWwwDirectories($wwwDir);
+        self::createConfigDatabase($wwwDir);
         
         echo "✅ Structure www/ créée.\n";
+    }
+    
+    private static function moveExistingFiles(string $baseDir, string $wwwDir): void
+    {
+        $filesToMove = ['public', 'src', 'templates', 'config'];
+        
+        foreach ($filesToMove as $item) {
+            $source = $baseDir . '/' . $item;
+            $target = $wwwDir . '/' . $item;
+            
+            if (is_dir($source) && !is_dir($target)) {
+                if (is_dir($source)) {
+                    self::moveDirectory($source, $target);
+                }
+            } elseif (is_file($source) && !is_file($target)) {
+                rename($source, $target);
+            }
+        }
+    }
+    
+    private static function moveDirectory(string $source, string $target): void
+    {
+        if (!is_dir($target)) {
+            mkdir($target, 0755, true);
+        }
+        
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($source, \RecursiveDirectoryIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::SELF_FIRST
+        );
+        
+        foreach ($iterator as $item) {
+            $targetPath = $target . DIRECTORY_SEPARATOR . $iterator->getSubPathName();
+            
+            if ($item->isDir()) {
+                if (!is_dir($targetPath)) {
+                    mkdir($targetPath, 0755, true);
+                }
+            } else {
+                if (!is_file($targetPath)) {
+                    rename($item->getPathname(), $targetPath);
+                }
+            }
+        }
+        
+        self::removeDirectory($source);
+    }
+    
+    private static function removeDirectory(string $dir): void
+    {
+        if (!is_dir($dir)) {
+            return;
+        }
+        
+        $files = array_diff(scandir($dir), ['.', '..']);
+        foreach ($files as $file) {
+            $path = $dir . '/' . $file;
+            if (is_dir($path)) {
+                self::removeDirectory($path);
+            } else {
+                unlink($path);
+            }
+        }
+        rmdir($dir);
+    }
+    
+    private static function createWwwDirectories(string $wwwDir): void
+    {
+        $directories = [
+            $wwwDir . '/src/Controller',
+            $wwwDir . '/src/Entity',
+            $wwwDir . '/src/Middleware',
+            $wwwDir . '/src/Repository',
+            $wwwDir . '/storage/logs',
+            $wwwDir . '/migrations',
+        ];
+        
+        foreach ($directories as $dir) {
+            if (!is_dir($dir)) {
+                mkdir($dir, 0755, true);
+            }
+        }
+        
+        file_put_contents($wwwDir . '/src/Controller/.gitkeep', '');
+        file_put_contents($wwwDir . '/src/Entity/.gitkeep', '');
+        file_put_contents($wwwDir . '/src/Middleware/.gitkeep', '');
+        file_put_contents($wwwDir . '/src/Repository/.gitkeep', '');
+    }
+    
+    private static function createConfigDatabase(string $wwwDir): void
+    {
+        $configDir = $wwwDir . '/config';
+        if (!is_dir($configDir)) {
+            mkdir($configDir, 0755, true);
+        }
+        
+        $content = <<<'PHP'
+<?php
+
+$defaults = [
+    'DB_HOST' => 'mariadb_app',
+    'DB_PORT' => '3306',
+    'DB_NAME' => 'app_db',
+    'DB_USER' => 'app_user',
+    'DB_PASS' => 'app_password'
+];
+
+$getEnv = function(string $key, string $default = '') use ($defaults): string {
+    $value = getenv($key);
+    if ($value === false || $value === '') {
+        return $defaults[$key] ?? $default;
+    }
+    return $value;
+};
+
+return [
+    'driver' => 'mysql',
+    'host' => $getEnv('DB_HOST'),
+    'port' => $getEnv('DB_PORT'),
+    'dbname' => $getEnv('DB_NAME'),
+    'user' => $getEnv('DB_USER'),
+    'password' => $getEnv('DB_PASS'),
+];
+PHP;
+        
+        file_put_contents($configDir . '/database.php', $content);
     }
     
     private static function copyComposerJson(string $baseDir, string $wwwDir): void
@@ -225,6 +354,16 @@ class Installer
         
         if (file_exists($sourceComposer)) {
             $content = file_get_contents($sourceComposer);
+            $json = json_decode($content, true);
+            
+            if ($json) {
+                $json['autoload']['psr-4'] = ['App\\' => 'src/'];
+                unset($json['autoload-dev']);
+                unset($json['scripts']);
+                unset($json['version']);
+                $content = json_encode($json, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+            }
+            
             file_put_contents($targetComposer, $content);
         }
     }
@@ -508,7 +647,13 @@ HTACCESS;
     
     private static function createPublicIndex(string $publicDir): void
     {
-        $content = <<<'PHP'
+        $wwwDir = dirname($publicDir);
+        $controllerDir = $wwwDir . '/src/Controller';
+        if (!is_dir($controllerDir)) {
+            mkdir($controllerDir, 0755, true);
+        }
+        
+        $indexContent = <<<'PHP'
 <?php
 
 declare(strict_types=1);
@@ -516,15 +661,29 @@ declare(strict_types=1);
 require_once __DIR__ . '/../vendor/autoload.php';
 
 use JulienLinard\Core\Application;
-use JulienLinard\Core\Controller\Controller;
-use JulienLinard\Router\Attributes\Route;
-use JulienLinard\Router\Response;
+use App\Controller\HomeController;
 
 $app = Application::create(__DIR__ . '/..');
 $app->setViewsPath(__DIR__ . '/../views');
 $app->setPartialsPath(__DIR__ . '/../views/_templates');
 
 $router = $app->getRouter();
+$router->registerRoutes(HomeController::class);
+
+$app->start();
+$app->handle();
+PHP;
+        
+        $controllerContent = <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+namespace App\Controller;
+
+use JulienLinard\Core\Controller\Controller;
+use JulienLinard\Router\Attributes\Route;
+use JulienLinard\Router\Response;
 
 class HomeController extends Controller
 {
@@ -537,13 +696,10 @@ class HomeController extends Controller
         ]);
     }
 }
-
-$router->registerRoutes(HomeController::class);
-$app->start();
-$app->handle();
 PHP;
         
-        file_put_contents($publicDir . '/index.php', $content);
+        file_put_contents($publicDir . '/index.php', $indexContent);
+        file_put_contents($controllerDir . '/HomeController.php', $controllerContent);
     }
     
     private static function createHeaderTemplate(string $templatesDir): void
