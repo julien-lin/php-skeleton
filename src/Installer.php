@@ -22,12 +22,23 @@ class Installer
         $installDoctrine = self::askQuestion('Voulez-vous installer Doctrine ? (y/N)', false);
         $installAuth = self::askQuestion('Voulez-vous installer Auth ? (y/N)', false);
         
+        $baseDir = dirname(__DIR__, 2);
+        $wwwDir = $baseDir . '/www';
+        
         if ($installDoctrine) {
-            self::installPackage('julienlinard/doctrine-php');
+            if ($useDocker) {
+                self::installPackageInDocker('julienlinard/doctrine-php', $wwwDir);
+            } else {
+                self::installPackage('julienlinard/doctrine-php', $baseDir);
+            }
         }
         
         if ($installAuth) {
-            self::installPackage('julienlinard/auth-php');
+            if ($useDocker) {
+                self::installPackageInDocker('julienlinard/auth-php', $wwwDir);
+            } else {
+                self::installPackage('julienlinard/auth-php', $baseDir);
+            }
         }
         
         self::displayCompletion($useDocker);
@@ -62,7 +73,7 @@ class Installer
         return strtolower($answer) === 'y' || strtolower($answer) === 'yes';
     }
     
-    private static function installPackage(string $package): void
+    private static function installPackage(string $package, string $baseDir): void
     {
         echo "\n📦 Installation de {$package}...\n";
         
@@ -74,7 +85,7 @@ class Installer
             return;
         }
         
-        $command = escapeshellarg($composerPath) . ' require ' . escapeshellarg($package) . ' --no-interaction';
+        $command = 'cd ' . escapeshellarg($baseDir) . ' && ' . escapeshellarg($composerPath) . ' require ' . escapeshellarg($package) . ' --no-interaction';
         $output = [];
         $returnCode = 0;
         
@@ -86,6 +97,38 @@ class Installer
             echo "❌ Erreur lors de l'installation de {$package}.\n";
             echo "   Sortie: " . implode("\n   ", $output) . "\n";
             echo "   Veuillez installer manuellement: composer require {$package}\n";
+        }
+    }
+    
+    private static function installPackageInDocker(string $package, string $wwwDir): void
+    {
+        echo "\n📦 Installation de {$package} dans www/...\n";
+        
+        if (!is_dir($wwwDir)) {
+            echo "❌ Erreur: Le répertoire www/ n'existe pas.\n";
+            return;
+        }
+        
+        $composerPath = self::findComposer();
+        if (!$composerPath) {
+            echo "⚠️  Composer n'est pas disponible. Installation à faire manuellement:\n";
+            echo "   cd www && composer require {$package}\n";
+            echo "   Ou après démarrage Docker: ccomposer require {$package}\n";
+            return;
+        }
+        
+        $command = 'cd ' . escapeshellarg($wwwDir) . ' && ' . escapeshellarg($composerPath) . ' require ' . escapeshellarg($package) . ' --no-interaction';
+        $output = [];
+        $returnCode = 0;
+        
+        exec($command . ' 2>&1', $output, $returnCode);
+        
+        if ($returnCode === 0) {
+            echo "✅ {$package} installé avec succès dans www/.\n";
+        } else {
+            echo "⚠️  Installation échouée. À faire manuellement:\n";
+            echo "   cd www && composer require {$package}\n";
+            echo "   Ou après démarrage Docker: ccomposer require {$package}\n";
         }
     }
     
@@ -130,9 +173,93 @@ class Installer
         
         $baseDir = dirname(__DIR__, 2);
         
+        self::createWwwStructure($baseDir);
         self::createDockerFiles($baseDir);
         
         echo "✅ Fichiers Docker créés.\n";
+    }
+    
+    private static function createWwwStructure(string $baseDir): void
+    {
+        $wwwDir = $baseDir . '/www';
+        $publicDir = $wwwDir . '/public';
+        $viewsDir = $wwwDir . '/views';
+        $templatesDir = $viewsDir . '/_templates';
+        $homeDir = $viewsDir . '/home';
+        
+        if (!is_dir($wwwDir)) {
+            mkdir($wwwDir, 0755, true);
+        }
+        if (!is_dir($publicDir)) {
+            mkdir($publicDir, 0755, true);
+        }
+        if (!is_dir($viewsDir)) {
+            mkdir($viewsDir, 0755, true);
+        }
+        if (!is_dir($templatesDir)) {
+            mkdir($templatesDir, 0755, true);
+        }
+        if (!is_dir($homeDir)) {
+            mkdir($homeDir, 0755, true);
+        }
+        
+        self::createPublicIndex($publicDir);
+        self::createHtaccess($publicDir);
+        self::createHeaderTemplate($templatesDir);
+        self::createFooterTemplate($templatesDir);
+        self::createHomeView($homeDir);
+        self::copyComposerJson($baseDir, $wwwDir);
+        
+        echo "✅ Structure www/ créée.\n";
+    }
+    
+    private static function copyComposerJson(string $baseDir, string $wwwDir): void
+    {
+        $sourceComposer = $baseDir . '/composer.json';
+        $targetComposer = $wwwDir . '/composer.json';
+        
+        if (file_exists($sourceComposer)) {
+            $content = file_get_contents($sourceComposer);
+            file_put_contents($targetComposer, $content);
+        }
+    }
+    
+    private static function createHomeView(string $homeDir): void
+    {
+        $content = <<<'PHP'
+<div class="container mx-auto px-4 py-8">
+    <div class="max-w-4xl mx-auto bg-white rounded-lg shadow-lg p-8">
+        <h1 class="text-4xl font-bold text-gray-800 mb-4"><?= htmlspecialchars($title ?? 'Welcome') ?></h1>
+        <p class="text-xl text-gray-600 mb-6"><?= htmlspecialchars($message ?? 'Hello World!') ?></p>
+        
+        <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
+            <p class="text-blue-700">
+                <strong>🎉 Congratulations!</strong> Your PHP application is running successfully.
+            </p>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="bg-gray-50 p-4 rounded">
+                <h2 class="font-semibold text-gray-800 mb-2">📦 Installed Packages</h2>
+                <ul class="text-sm text-gray-600 space-y-1">
+                    <li>✅ Core PHP Framework</li>
+                    <li>✅ PHP Router</li>
+                </ul>
+            </div>
+            <div class="bg-gray-50 p-4 rounded">
+                <h2 class="font-semibold text-gray-800 mb-2">🚀 Next Steps</h2>
+                <ul class="text-sm text-gray-600 space-y-1">
+                    <li>Create your controllers</li>
+                    <li>Add your views</li>
+                    <li>Configure your database</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+PHP;
+        
+        file_put_contents($homeDir . '/index.html.php', $content);
     }
     
     private static function setupLocal(): void
@@ -199,7 +326,6 @@ class Installer
         self::createDockerCompose($baseDir);
         self::createDockerfile($baseDir);
         self::createCustomPhpIni($baseDir);
-        self::createHtaccess($baseDir);
         self::createAliases($baseDir);
         self::createDockerignore($baseDir);
     }
@@ -215,7 +341,7 @@ services:
     ports:
       - "${APACHE_PORT:-80}:80"
     volumes:
-      - ./public:/var/www/html/public
+      - ./www:/var/www/html
       - ./apache/custom-php.ini:/usr/local/etc/php/conf.d/custom-php.ini
     environment:
       - PHP_ERROR_REPORTING=${PHP_ERROR_REPORTING:-E_ALL}
@@ -358,13 +484,8 @@ INI;
         file_put_contents($apacheDir . '/custom-php.ini', $content);
     }
     
-    private static function createHtaccess(string $baseDir): void
+    private static function createHtaccess(string $publicDir): void
     {
-        $publicDir = $baseDir . '/public';
-        if (!is_dir($publicDir)) {
-            mkdir($publicDir, 0755, true);
-        }
-        
         $content = <<<'HTACCESS'
 RewriteEngine On
 
@@ -378,6 +499,73 @@ RewriteRule ^(.*)$ index.php [QSA,L]
 HTACCESS;
         
         file_put_contents($publicDir . '/.htaccess', $content);
+    }
+    
+    private static function createPublicIndex(string $publicDir): void
+    {
+        $content = <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+require_once __DIR__ . '/../vendor/autoload.php';
+
+use JulienLinard\Core\Application;
+use JulienLinard\Core\Controller\Controller;
+use JulienLinard\Router\Attributes\Route;
+use JulienLinard\Router\Response;
+
+$app = Application::create(__DIR__ . '/..');
+$app->setViewsPath(__DIR__ . '/../views');
+$app->setPartialsPath(__DIR__ . '/../views/_templates');
+
+$router = $app->getRouter();
+
+class HomeController extends Controller
+{
+    #[Route(path: '/', methods: ['GET'], name: 'home')]
+    public function index(): Response
+    {
+        return $this->view('home/index', [
+            'title' => 'Welcome',
+            'message' => 'Hello World!'
+        ]);
+    }
+}
+
+$router->registerRoutes(HomeController::class);
+$app->start();
+$app->handle();
+PHP;
+        
+        file_put_contents($publicDir . '/index.php', $content);
+    }
+    
+    private static function createHeaderTemplate(string $templatesDir): void
+    {
+        $content = <<<'PHP'
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><?= htmlspecialchars($title ?? 'Application') ?></title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+PHP;
+        
+        file_put_contents($templatesDir . '/_header.html.php', $content);
+    }
+    
+    private static function createFooterTemplate(string $templatesDir): void
+    {
+        $content = <<<'PHP'
+</body>
+</html>
+PHP;
+        
+        file_put_contents($templatesDir . '/_footer.html.php', $content);
     }
     
     private static function createAliases(string $baseDir): void
@@ -435,12 +623,14 @@ IGNORE;
         if ($useDocker) {
             echo "   1. Chargez les aliases: source aliases.sh\n";
             echo "   2. Démarrez Docker: docker compose up -d\n";
-            echo "   3. Visitez http://localhost\n";
-            echo "   4. Utilisez 'ccomposer' pour les commandes Composer\n";
+            echo "   3. Installez les dépendances: cd www && composer install\n";
+            echo "   4. Visitez http://localhost (ou le port configuré)\n";
+            echo "   5. Utilisez 'ccomposer' pour les commandes Composer dans Docker\n";
         } else {
             echo "   1. Configurez votre fichier .env si nécessaire\n";
-            echo "   2. Lancez votre serveur: php -S localhost:8000 -t public\n";
-            echo "   3. Visitez http://localhost:8000\n";
+            echo "   2. Installez les dépendances: composer install\n";
+            echo "   3. Lancez votre serveur: php -S localhost:8000 -t public\n";
+            echo "   4. Visitez http://localhost:8000\n";
         }
         
         echo "\n";
