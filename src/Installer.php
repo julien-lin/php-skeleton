@@ -23,7 +23,7 @@ class Installer
         $installAuth = self::askQuestion('Voulez-vous installer Auth ? (y/N)', false);
         
         $baseDir = self::getProjectRoot();
-        $wwwDir = $baseDir . '/www';
+        $wwwDir = $useDocker ? $baseDir . '/www' : $baseDir;
         
         if ($installDoctrine) {
             if ($useDocker) {
@@ -42,7 +42,12 @@ class Installer
         }
         
         self::copyComposerJson($baseDir, $wwwDir, $installDoctrine, $installAuth);
-        self::createPublicIndex($wwwDir . '/public', $installDoctrine, $installAuth);
+        
+        if ($useDocker) {
+            self::createPublicIndex($wwwDir . '/public', $installDoctrine, $installAuth);
+        } else {
+            self::createPublicIndex($baseDir . '/public', $installDoctrine, $installAuth);
+        }
         
         self::displayCompletion($useDocker);
     }
@@ -374,10 +379,10 @@ PHP;
         file_put_contents($configDir . '/database.php', $content);
     }
     
-    private static function copyComposerJson(string $baseDir, string $wwwDir, bool $hasDoctrine, bool $hasAuth): void
+    private static function copyComposerJson(string $baseDir, string $targetDir, bool $hasDoctrine, bool $hasAuth): void
     {
         $projectName = basename($baseDir);
-        $targetComposer = $wwwDir . '/composer.json';
+        $targetComposer = $targetDir . '/composer.json';
         
         $require = [
             'php' => '^8.1',
