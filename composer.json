@@ -14,6 +14,7 @@
         "post-create-project-cmd": [
             "Julien\\Installer::postInstall"
         ]
-    }
+    },
+    "version": "1.3.2"
 }
 
