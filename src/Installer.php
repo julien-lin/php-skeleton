@@ -817,6 +817,11 @@ PHP;
         $content .= <<<'PHP'
 
 $router = $app->getRouter();
+
+// Protection CSRF (optionnel - décommenter pour activer)
+// use JulienLinard\Core\Middleware\CsrfMiddleware;
+// $router->addMiddleware(new CsrfMiddleware());
+
 $router->registerRoutes(HomeController::class);
 
 $app->start();
