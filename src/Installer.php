@@ -41,6 +41,7 @@ class Installer
             }
         }
         
+        self::copyComposerJson($baseDir, $wwwDir, $installDoctrine, $installAuth);
         self::createPublicIndex($wwwDir . '/public', $installDoctrine, $installAuth);
         
         self::displayCompletion($useDocker);
@@ -215,7 +216,6 @@ class Installer
         self::createHeaderTemplate($templatesDir);
         self::createFooterTemplate($templatesDir);
         self::createHomeView($homeDir);
-        self::copyComposerJson($baseDir, $wwwDir);
         self::createWwwDirectories($wwwDir);
         self::createConfigDatabase($wwwDir);
         
@@ -374,25 +374,37 @@ PHP;
         file_put_contents($configDir . '/database.php', $content);
     }
     
-    private static function copyComposerJson(string $baseDir, string $wwwDir): void
+    private static function copyComposerJson(string $baseDir, string $wwwDir, bool $hasDoctrine, bool $hasAuth): void
     {
-        $sourceComposer = $baseDir . '/composer.json';
+        $projectName = basename($baseDir);
         $targetComposer = $wwwDir . '/composer.json';
         
-        if (file_exists($sourceComposer)) {
-            $content = file_get_contents($sourceComposer);
-            $json = json_decode($content, true);
-            
-            if ($json) {
-                $json['autoload']['psr-4'] = ['App\\' => 'src/'];
-                unset($json['autoload-dev']);
-                unset($json['scripts']);
-                unset($json['version']);
-                $content = json_encode($json, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
-            }
-            
-            file_put_contents($targetComposer, $content);
+        $require = [
+            'php' => '^8.1',
+            'julienlinard/core-php' => '^1.0',
+            'julienlinard/php-router' => '^1.0'
+        ];
+        
+        if ($hasDoctrine) {
+            $require['julienlinard/doctrine-php'] = '^1.0';
         }
+        
+        if ($hasAuth) {
+            $require['julienlinard/auth-php'] = '^1.0';
+        }
+        
+        $json = [
+            'name' => $projectName . '/' . $projectName,
+            'require' => $require,
+            'autoload' => [
+                'psr-4' => [
+                    'App\\' => 'src/'
+                ]
+            ]
+        ];
+        
+        $content = json_encode($json, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+        file_put_contents($targetComposer, $content);
     }
     
     private static function createHomeView(string $homeDir): void
