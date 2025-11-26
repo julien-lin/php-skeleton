@@ -12,18 +12,18 @@ class Installer
         
         $useDocker = self::askQuestion('Voulez-vous utiliser Docker ? (y/N)', false);
         
-        if ($useDocker) {
-            self::setupDocker();
-            self::configureEnv();
-        } else {
-            self::setupLocal();
-        }
-        
         $installDoctrine = self::askQuestion('Voulez-vous installer Doctrine ? (y/N)', false);
         $installAuth = self::askQuestion('Voulez-vous installer Auth ? (y/N)', false);
         
         $baseDir = self::getProjectRoot();
         $wwwDir = $useDocker ? $baseDir . '/www' : $baseDir;
+        
+        if ($useDocker) {
+            self::setupDocker($installDoctrine, $installAuth);
+            self::configureEnv();
+        } else {
+            self::setupLocal($installDoctrine, $installAuth);
+        }
         
         if ($installDoctrine) {
             if ($useDocker) {
@@ -42,12 +42,6 @@ class Installer
         }
         
         self::copyComposerJson($baseDir, $wwwDir, $installDoctrine, $installAuth);
-        
-        if ($useDocker) {
-            self::createPublicIndex($wwwDir . '/public', $installDoctrine, $installAuth);
-        } else {
-            self::createPublicIndex($baseDir . '/public', $installDoctrine, $installAuth);
-        }
         
         self::displayCompletion($useDocker);
     }
@@ -175,13 +169,13 @@ class Installer
         return file_exists($path) && is_executable($path);
     }
     
-    private static function setupDocker(): void
+    private static function setupDocker(bool $installDoctrine, bool $installAuth): void
     {
         echo "\n🐳 Configuration Docker...\n";
         
         $baseDir = self::getProjectRoot();
         
-        self::createWwwStructure($baseDir);
+        self::createWwwStructure($baseDir, $installDoctrine, $installAuth);
         self::createDockerFiles($baseDir);
         
         echo "✅ Fichiers Docker créés.\n";
@@ -192,7 +186,7 @@ class Installer
         return getcwd() ?: dirname(__DIR__, 1);
     }
     
-    private static function createWwwStructure(string $baseDir): void
+    private static function createWwwStructure(string $baseDir, bool $installDoctrine, bool $installAuth): void
     {
         $wwwDir = $baseDir . '/www';
         $publicDir = $wwwDir . '/public';
@@ -223,6 +217,7 @@ class Installer
         self::createHomeView($homeDir);
         self::createWwwDirectories($wwwDir);
         self::createConfigDatabase($wwwDir);
+        self::createPublicIndex($publicDir, $installDoctrine, $installAuth);
         
         echo "✅ Structure www/ créée.\n";
     }
@@ -324,6 +319,7 @@ class Installer
             $wwwDir . '/src/Entity',
             $wwwDir . '/src/Middleware',
             $wwwDir . '/src/Repository',
+            $wwwDir . '/src/Service',
             $wwwDir . '/storage/logs',
             $wwwDir . '/migrations',
         ];
@@ -338,6 +334,158 @@ class Installer
         file_put_contents($wwwDir . '/src/Entity/.gitkeep', '');
         file_put_contents($wwwDir . '/src/Middleware/.gitkeep', '');
         file_put_contents($wwwDir . '/src/Repository/.gitkeep', '');
+        file_put_contents($wwwDir . '/src/Service/.gitkeep', '');
+        
+        // Créer le service Logger
+        self::createLoggerService($wwwDir . '/src/Service');
+    }
+    
+    private static function createLoggerService(string $serviceDir): void
+    {
+        $content = <<<'PHP'
+<?php
+
+/**
+ * ============================================
+ * LOGGER SERVICE
+ * ============================================
+ * 
+ * CONCEPT PÉDAGOGIQUE : Logging structuré
+ * 
+ * Ce service permet d'enregistrer des logs structurés pour :
+ * - Le débogage (trouver les erreurs)
+ * - La traçabilité (savoir qui a fait quoi)
+ * - La sécurité (détecter les tentatives d'attaque)
+ * 
+ * NIVEAUX DE LOG :
+ * - INFO : Actions normales (connexion, création, etc.)
+ * - WARNING : Avertissements (tentatives échouées, validations échouées)
+ * - ERROR : Erreurs (exceptions, problèmes techniques)
+ * 
+ * FORMAT DES LOGS :
+ * [2024-01-15 10:30:45] [INFO] Message {"context": "data"}
+ * 
+ * CONCEPT : Rotation des logs
+ * Quand le fichier de log dépasse 10 MB, il est renommé avec la date/heure
+ * Cela évite que les logs deviennent trop volumineux.
+ */
+
+namespace App\Service;
+
+/**
+ * Service de logging structuré
+ * 
+ * CONCEPT : Classe statique
+ * Toutes les méthodes sont statiques pour faciliter l'utilisation
+ * Logger::info('Message') au lieu de (new Logger())->info('Message')
+ */
+class Logger
+{
+    // ============================================
+    // CONSTANTES DE CONFIGURATION
+    // ============================================
+    private const LOG_DIR = __DIR__ . '/../../storage/logs/';  // Dossier des logs
+    private const LOG_FILE = 'app.log';                        // Nom du fichier de log
+    private const MAX_LOG_SIZE = 10 * 1024 * 1024;            // 10 MB (taille max avant rotation)
+
+    /**
+     * Log un message avec un niveau
+     * 
+     * CONCEPT PÉDAGOGIQUE : Méthode générique de logging
+     * 
+     * Cette méthode est utilisée par toutes les méthodes spécialisées
+     * (info, warning, error, exception)
+     * 
+     * FORMAT DU LOG :
+     * [TIMESTAMP] [LEVEL] MESSAGE {"context": "data"}
+     * 
+     * @param string $level Niveau du log (INFO, WARNING, ERROR)
+     * @param string $message Message à logger
+     * @param array $context Contexte additionnel (données structurées)
+     */
+    public static function log(string $level, string $message, array $context = []): void
+    {
+        $logFile = self::LOG_DIR . self::LOG_FILE;
+        
+        // Créer le dossier s'il n'existe pas
+        // CONCEPT : Création automatique des dossiers nécessaires
+        if (!is_dir(self::LOG_DIR)) {
+            @mkdir(self::LOG_DIR, 0755, true);
+        }
+
+        // Rotation des logs si nécessaire
+        // CONCEPT : Gestion de l'espace disque
+        // Si le fichier dépasse 10 MB, le renommer avec la date/heure
+        if (file_exists($logFile) && filesize($logFile) > self::MAX_LOG_SIZE) {
+            self::rotateLogs();
+        }
+
+        // Formater le message de log
+        // CONCEPT : Format structuré avec timestamp et contexte JSON
+        $timestamp = date('Y-m-d H:i:s');
+        $contextStr = !empty($context) ? ' ' . json_encode($context) : '';
+        $logMessage = "[{$timestamp}] [{$level}] {$message}{$contextStr}" . PHP_EOL;
+
+        // Écrire dans le fichier de log
+        // CONCEPT : FILE_APPEND = ajouter à la fin du fichier
+        // LOCK_EX = verrouiller le fichier pendant l'écriture (évite les conflits)
+        @file_put_contents($logFile, $logMessage, FILE_APPEND | LOCK_EX);
+    }
+
+    /**
+     * Log un message d'information
+     */
+    public static function info(string $message, array $context = []): void
+    {
+        self::log('INFO', $message, $context);
+    }
+
+    /**
+     * Log un avertissement
+     */
+    public static function warning(string $message, array $context = []): void
+    {
+        self::log('WARNING', $message, $context);
+    }
+
+    /**
+     * Log une erreur
+     */
+    public static function error(string $message, array $context = []): void
+    {
+        self::log('ERROR', $message, $context);
+    }
+
+    /**
+     * Log une exception
+     */
+    public static function exception(\Throwable $e, array $context = []): void
+    {
+        $context['exception'] = [
+            'message' => $e->getMessage(),
+            'file' => $e->getFile(),
+            'line' => $e->getLine(),
+            'trace' => $e->getTraceAsString()
+        ];
+        self::error('Exception: ' . $e->getMessage(), $context);
+    }
+
+    /**
+     * Rotation des logs
+     */
+    private static function rotateLogs(): void
+    {
+        $logFile = self::LOG_DIR . self::LOG_FILE;
+        $backupFile = self::LOG_DIR . self::LOG_FILE . '.' . date('Y-m-d_His');
+        
+        if (file_exists($logFile)) {
+            @rename($logFile, $backupFile);
+        }
+    }
+}
+PHP;
+        
+        file_put_contents($serviceDir . '/Logger.php', $content);
     }
     
     private static function createConfigDatabase(string $wwwDir): void
@@ -350,29 +498,83 @@ class Installer
         $content = <<<'PHP'
 <?php
 
+/**
+ * Configuration de la base de données
+ * 
+ * SÉCURITÉ : Les identifiants sensibles (user, password, database) DOIVENT
+ * être définis dans le fichier .env et ne JAMAIS être en dur dans le code.
+ * 
+ * Seules les valeurs non sensibles peuvent avoir des valeurs par défaut.
+ */
+
+// Valeurs par défaut uniquement pour les paramètres non sensibles
 $defaults = [
-    'DB_HOST' => 'mariadb_app',
-    'DB_PORT' => '3306',
-    'DB_NAME' => 'app_db',
-    'DB_USER' => 'app_user',
-    'DB_PASS' => 'app_password'
+    'MARIADB_CONTAINER' => 'mariadb_app', // Nom du container Docker (non sensible)
+    'MARIADB_PORT' => '3306', // Port par défaut MySQL (non sensible)
 ];
 
-$getEnv = function(string $key, string $default = '') use ($defaults): string {
+/**
+ * Récupère une variable d'environnement avec une valeur par défaut optionnelle
+ * 
+ * @param string $key Clé de la variable d'environnement
+ * @param string|null $default Valeur par défaut (null = obligatoire)
+ * @return string Valeur de la variable d'environnement
+ * @throws \RuntimeException Si la variable est obligatoire et non définie
+ */
+$getEnv = function(string $key, ?string $default = null) use ($defaults): string {
     $value = getenv($key);
+    
+    // Si la variable n'est pas définie ou vide
     if ($value === false || $value === '') {
-        return $defaults[$key] ?? $default;
+        // Si une valeur par défaut existe (non sensible), l'utiliser
+        if (isset($defaults[$key])) {
+            return $defaults[$key];
+        }
+        
+        // Si une valeur par défaut est fournie, l'utiliser
+        if ($default !== null) {
+            return $default;
+        }
+        
+        // Sinon, la variable est obligatoire → lever une exception
+        throw new \RuntimeException(
+            "Variable d'environnement obligatoire non définie: {$key}. " .
+            "Veuillez la définir dans votre fichier .env"
+        );
     }
+    
     return $value;
 };
 
+// Variables sensibles : DOIVENT être définies dans .env (pas de valeur par défaut)
+$dbName = $getEnv('MYSQL_DATABASE');
+$dbUser = $getEnv('MYSQL_USER');
+$dbPassword = $getEnv('MYSQL_PASSWORD');
+
+// Variables non sensibles : peuvent avoir des valeurs par défaut
+// IMPORTANT : Dans Docker, le host doit être le nom du service (mariadb_app), pas localhost
+$dbHost = $getEnv('MARIADB_CONTAINER', 'mariadb_app');
+$dbPort = 3306;
+
+// Convertir le port en int si c'est une string
+$dbPort = is_numeric($dbPort) ? (int)$dbPort : null;
+
+// Validation : s'assurer que le host n'est pas localhost en Docker
+// (cela ne fonctionnerait pas car chaque container a son propre localhost)
+if ($dbHost === 'localhost' || $dbHost === '127.0.0.1') {
+    throw new \RuntimeException(
+        "Le host de la base de données ne peut pas être 'localhost' ou '127.0.0.1' dans Docker. " .
+        "Utilisez le nom du service Docker (ex: 'mariadb_app') ou définissez MARIADB_CONTAINER dans votre .env"
+    );
+}
 return [
     'driver' => 'mysql',
-    'host' => $getEnv('DB_HOST'),
-    'port' => $getEnv('DB_PORT'),
-    'dbname' => $getEnv('DB_NAME'),
-    'user' => $getEnv('DB_USER'),
-    'password' => $getEnv('DB_PASS'),
+    'host' => $dbHost,
+    'port' => $dbPort ?: 3306, // Port par défaut MySQL si non défini
+    'dbname' => $dbName,
+    'user' => $dbUser,
+    'password' => $dbPassword,
+    'charset' => 'utf8mb4',
 ];
 PHP;
         
@@ -450,10 +652,72 @@ PHP;
         file_put_contents($homeDir . '/index.html.php', $content);
     }
     
-    private static function setupLocal(): void
+    private static function setupLocal(bool $installDoctrine, bool $installAuth): void
     {
         echo "\n💻 Configuration locale...\n";
+        $baseDir = self::getProjectRoot();
+        self::createLocalStructure($baseDir, $installDoctrine, $installAuth);
         echo "✅ Configuration locale prête.\n";
+    }
+    
+    private static function createLocalStructure(string $baseDir, bool $installDoctrine, bool $installAuth): void
+    {
+        $publicDir = $baseDir . '/public';
+        $viewsDir = $baseDir . '/views';
+        $templatesDir = $viewsDir . '/_templates';
+        $homeDir = $viewsDir . '/home';
+        
+        if (!is_dir($publicDir)) {
+            mkdir($publicDir, 0755, true);
+        }
+        if (!is_dir($viewsDir)) {
+            mkdir($viewsDir, 0755, true);
+        }
+        if (!is_dir($templatesDir)) {
+            mkdir($templatesDir, 0755, true);
+        }
+        if (!is_dir($homeDir)) {
+            mkdir($homeDir, 0755, true);
+        }
+        
+        self::createHtaccess($publicDir);
+        self::createHeaderTemplate($templatesDir);
+        self::createFooterTemplate($templatesDir);
+        self::createHomeView($homeDir);
+        self::createLocalDirectories($baseDir);
+        self::createConfigDatabase($baseDir);
+        
+        self::createPublicIndex($publicDir, $installDoctrine, $installAuth);
+        
+        echo "✅ Structure locale créée.\n";
+    }
+    
+    private static function createLocalDirectories(string $baseDir): void
+    {
+        $directories = [
+            $baseDir . '/src/Controller',
+            $baseDir . '/src/Entity',
+            $baseDir . '/src/Middleware',
+            $baseDir . '/src/Repository',
+            $baseDir . '/src/Service',
+            $baseDir . '/storage/logs',
+            $baseDir . '/migrations',
+        ];
+        
+        foreach ($directories as $dir) {
+            if (!is_dir($dir)) {
+                mkdir($dir, 0755, true);
+            }
+        }
+        
+        file_put_contents($baseDir . '/src/Controller/.gitkeep', '');
+        file_put_contents($baseDir . '/src/Entity/.gitkeep', '');
+        file_put_contents($baseDir . '/src/Middleware/.gitkeep', '');
+        file_put_contents($baseDir . '/src/Repository/.gitkeep', '');
+        file_put_contents($baseDir . '/src/Service/.gitkeep', '');
+        
+        // Créer le service Logger
+        self::createLoggerService($baseDir . '/src/Service');
     }
     
     private static function configureEnv(): void
@@ -498,7 +762,9 @@ PHP;
     {
         $baseDir = self::getProjectRoot();
         $envPath = $baseDir . '/.env';
+        $wwwEnvPath = $baseDir . '/www/.env';
         
+        // Créer le .env à la racine (pour Docker)
         $content = "# Configuration Docker\n";
         $content .= "# Généré automatiquement par l'installateur\n\n";
         
@@ -507,6 +773,29 @@ PHP;
         }
         
         file_put_contents($envPath, $content);
+        
+        // Créer le .env dans www/ (pour l'application)
+        $wwwContent = "# Configuration Application\n";
+        $wwwContent .= "# Généré automatiquement par l'installateur\n\n";
+        $wwwContent .= "MARIADB_CONTAINER={$data['MARIADB_CONTAINER']}\n";
+        $wwwContent .= "MYSQL_DATABASE={$data['MYSQL_DATABASE']}\n";
+        $wwwContent .= "MYSQL_USER={$data['MYSQL_USER']}\n";
+        $wwwContent .= "MYSQL_PASSWORD={$data['MYSQL_PASSWORD']}\n";
+        $wwwContent .= "PHP_ERROR_REPORTING={$data['PHP_ERROR_REPORTING']}\n";
+        $wwwContent .= "PHP_DISPLAY_ERRORS={$data['PHP_DISPLAY_ERRORS']}\n";
+        $wwwContent .= "\n";
+        $wwwContent .= "# Configuration Application\n";
+        $wwwContent .= "APP_SECRET=" . bin2hex(random_bytes(32)) . "\n";
+        $wwwContent .= "APP_DEBUG=1\n";
+        $wwwContent .= "APP_LOCALE=fr\n";
+        
+        // Créer le dossier www/ s'il n'existe pas
+        $wwwDir = dirname($wwwEnvPath);
+        if (!is_dir($wwwDir)) {
+            mkdir($wwwDir, 0755, true);
+        }
+        
+        file_put_contents($wwwEnvPath, $wwwContent);
     }
     
     private static function createDockerFiles(string $baseDir): void
@@ -569,9 +858,9 @@ services:
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 90s
     mem_limit: 1g
     mem_reservation: 512m
     cpus: 2.0
@@ -702,6 +991,16 @@ HTACCESS;
         $controllerContent = <<<'PHP'
 <?php
 
+/**
+ * ============================================
+ * HOME CONTROLLER
+ * ============================================
+ * 
+ * CONCEPT PÉDAGOGIQUE : Controller simple
+ * 
+ * Ce contrôleur gère la route racine "/" et affiche la page d'accueil.
+ */
+
 declare(strict_types=1);
 
 namespace App\Controller;
@@ -712,6 +1011,11 @@ use JulienLinard\Router\Response;
 
 class HomeController extends Controller
 {
+    /**
+     * Route racine : affiche la page d'accueil
+     * 
+     * CONCEPT : Route simple sans middleware
+     */
     #[Route(path: '/', methods: ['GET'], name: 'home')]
     public function index(): Response
     {
@@ -732,11 +1036,29 @@ PHP;
         $content = <<<'PHP'
 <?php
 
+/**
+ * ============================================
+ * POINT D'ENTRÉE DE L'APPLICATION (Bootstrap)
+ * ============================================
+ * 
+ * Ce fichier est le point d'entrée unique de l'application.
+ * Il initialise tous les composants nécessaires au fonctionnement de l'app.
+ * 
+ * CONCEPT PÉDAGOGIQUE : Bootstrap Pattern
+ * Le bootstrap est le code qui initialise l'application avant son exécution.
+ * C'est ici que l'on configure les services, les routes, et les middlewares.
+ */
+
 declare(strict_types=1);
 
 require_once __DIR__ . '/../vendor/autoload.php';
 
 use JulienLinard\Core\Application;
+use JulienLinard\Core\Middleware\CsrfMiddleware;
+use JulienLinard\Core\ErrorHandler;
+use JulienLinard\Core\Logging\SimpleLogger;
+use JulienLinard\Validator\Validator as PhpValidator;
+use JulienLinard\Core\Form\Validator as CoreValidator;
 use App\Controller\HomeController;
 PHP;
 
@@ -750,22 +1072,55 @@ PHP;
         
         $content .= "\n\n";
         
+        $content .= <<<'PHP'
+// ============================================
+// ÉTAPE 1 : CRÉATION DE L'APPLICATION
+// ============================================
+// Créer l'instance de l'application
+// CONCEPT : Application Singleton
+$app = Application::create(dirname(__DIR__));
+
+// ============================================
+// ÉTAPE 2 : CHARGEMENT DES VARIABLES D'ENVIRONNEMENT
+// ============================================
+// IMPORTANT : Charger .env AVANT la configuration
+// Les fichiers de configuration (comme database.php) ont besoin des variables d'environnement
+// CONCEPT : Variables d'environnement pour la sécurité (identifiants, secrets)
+$app->loadEnv();
+
+// ============================================
+// ÉTAPE 3 : CHARGEMENT DE LA CONFIGURATION
+// ============================================
+// Charger la configuration depuis le répertoire config/
+// CONCEPT : Configuration centralisée avec ConfigLoader
+// Tous les fichiers PHP dans config/ sont automatiquement chargés
+// Les fichiers de configuration peuvent maintenant utiliser getenv() pour lire les variables
+$app->loadConfig('config');
+PHP;
+
         if ($hasDoctrine) {
             $content .= <<<'PHP'
-$dbConfig = require __DIR__ . '/../config/database.php';
-
+$dbConfig = $app->getConfig()->get('database', []);
 PHP;
         }
         
         $content .= <<<'PHP'
-$app = Application::create(__DIR__ . '/..');
+
+// ============================================
+// ÉTAPE 4 : INITIALISATION DE L'APPLICATION
+// ============================================
+// Définir les chemins des vues (templates)
+// CONCEPT : Configuration des chemins pour le moteur de templates
 $app->setViewsPath(__DIR__ . '/../views');
 $app->setPartialsPath(__DIR__ . '/../views/_templates');
 
-if (file_exists(__DIR__ . '/../.env')) {
-    $app->loadEnv();
-}
-
+// ============================================
+// ÉTAPE 5 : CONFIGURATION DU MODE DEBUG ET ERROR HANDLER
+// ============================================
+// Activer le mode debug selon la variable d'environnement
+// CONCEPT PÉDAGOGIQUE : Environnements (dev/prod)
+// En développement : afficher les erreurs pour déboguer
+// En production : masquer les erreurs pour la sécurité
 $debug = getenv('APP_DEBUG') === 'true' || getenv('APP_DEBUG') === '1';
 if (!defined('APP_DEBUG')) {
     define('APP_DEBUG', $debug);
@@ -774,16 +1129,51 @@ $app->getConfig()->set('app.debug', $debug);
 error_reporting($debug ? E_ALL : 0);
 ini_set('display_errors', $debug ? '1' : '0');
 
+// Configurer l'ErrorHandler avec logging
+// CONCEPT : Gestion centralisée des erreurs avec logging
+$logFile = __DIR__ . '/../storage/logs/app.log';
+// Créer le répertoire de logs s'il n'existe pas
+$logDir = dirname($logFile);
+if (!is_dir($logDir)) {
+    mkdir($logDir, 0755, true);
+}
+$logger = new SimpleLogger($logFile);
+$errorHandler = new ErrorHandler($app, $logger, $debug, __DIR__ . '/../views');
+$app->setErrorHandler($errorHandler);
+
+// ============================================
+// CONFIGURATION DE SÉCURITÉ DES SESSIONS
+// ============================================
+// Ces paramètres sécurisent les cookies de session PHP
+// 
+// cookie_httponly : Empêche l'accès au cookie via JavaScript (protection XSS)
+// cookie_samesite : Empêche l'envoi du cookie lors de requêtes cross-site (protection CSRF)
+// use_strict_mode : Empêche la fixation de session (attaque de fixation de session)
+//
+// Note pédagogique : Ces configurations sont essentielles pour sécuriser les sessions
+// et doivent être expliquées aux étudiants dans le cours sur la sécurité web.
 ini_set('session.cookie_httponly', '1');
 ini_set('session.cookie_samesite', 'Strict');
 ini_set('session.use_strict_mode', '1');
+// Note : cookie_secure = '1' uniquement en production avec HTTPS
+// En développement local sans HTTPS, laisser à '0' ou ne pas définir
 
+// ============================================
+// ÉTAPE 6 : CONFIGURATION DU CONTAINER DI
+// ============================================
+// Récupérer le container d'injection de dépendances
+// CONCEPT PÉDAGOGIQUE : Dependency Injection (DI) Container
+// Le container gère la création et l'injection des dépendances
+// Permet de découpler le code et facilite les tests
 $container = $app->getContainer();
 PHP;
 
         if ($hasDoctrine) {
             $content .= <<<'PHP'
 
+// Enregistrer EntityManager comme singleton
+// CONCEPT : Singleton = une seule instance partagée dans toute l'application
+// Utile pour les services coûteux (connexion DB, etc.)
 $container->singleton(EntityManager::class, function() use ($dbConfig) {
     return new EntityManager($dbConfig);
 });
@@ -794,6 +1184,9 @@ PHP;
             if ($hasDoctrine) {
                 $content .= <<<'PHP'
 
+// Enregistrer AuthManager comme singleton
+// Le AuthManager a besoin de l'EntityManager, donc on l'injecte via le container
+// CONCEPT : Injection de dépendances - AuthManager dépend d'EntityManager
 $container->singleton(AuthManager::class, function() use ($container) {
     $em = $container->make(EntityManager::class);
     return new AuthManager([
@@ -805,6 +1198,7 @@ PHP;
             } else {
                 $content .= <<<'PHP'
 
+// Enregistrer AuthManager comme singleton
 $container->singleton(AuthManager::class, function() {
     return new AuthManager([
         'user_class' => \App\Entity\User::class
@@ -816,15 +1210,89 @@ PHP;
         
         $content .= <<<'PHP'
 
+// Enregistrer Validator (php-validator) comme singleton avec la locale de l'application
+// CONCEPT : Configuration centralisée de la locale pour les messages d'erreur multilingues
+// La locale peut être définie via la variable d'environnement APP_LOCALE (défaut: 'fr')
+$appLocale = getenv('APP_LOCALE') ?: 'fr';
+$container->singleton(PhpValidator::class, function() use ($appLocale) {
+    return new PhpValidator($appLocale);
+});
+
+// Enregistrer CoreValidator comme singleton (utilise php-validator en interne)
+// CONCEPT : CoreValidator est un wrapper autour de php-validator utilisé par les contrôleurs
+$container->singleton(CoreValidator::class, function() use ($container) {
+    $phpValidator = $container->make(PhpValidator::class);
+    $coreValidator = new CoreValidator();
+    // Configurer la locale du CoreValidator pour qu'elle corresponde à php-validator
+    $coreValidator->setLocale($phpValidator->getLocale());
+    return $coreValidator;
+});
+
+// ============================================
+// ÉTAPE 7 : CONFIGURATION DU ROUTER ET MIDDLEWARES
+// ============================================
+// Récupérer le router qui gère les routes de l'application
+// CONCEPT PÉDAGOGIQUE : Router (Routeur)
+// Le router fait le lien entre les URLs et les méthodes des contrôleurs
 $router = $app->getRouter();
 
-// Protection CSRF (optionnel - décommenter pour activer)
-// use JulienLinard\Core\Middleware\CsrfMiddleware;
-// $router->addMiddleware(new CsrfMiddleware());
+// Ajouter le middleware CSRF globalement pour toutes les requêtes
+// CONCEPT PÉDAGOGIQUE : Middleware Global
+// Un middleware global s'exécute sur TOUTES les requêtes
+// Ici, il génère le token CSRF si nécessaire et le vérifie pour POST/PUT/DELETE
+// CONCEPT : CSRF Protection (Cross-Site Request Forgery)
+// Protection contre les attaques où un site malveillant fait des requêtes en votre nom
+$router->addMiddleware(new CsrfMiddleware());
 
+// ============================================
+// ÉTAPE 8 : CONFIGURATION DU SYSTÈME D'ÉVÉNEMENTS
+// ============================================
+// Récupérer le dispatcher d'événements
+// CONCEPT : EventDispatcher pour l'extensibilité
+// Permet d'écouter les événements de l'application (request.started, response.sent, etc.)
+$events = $app->getEvents();
+
+// Écouter les événements pour le logging
+// CONCEPT : Event Listeners - écouter les événements de l'application
+$events->listen('request.started', function(array $payload) use ($logger) {
+    $request = $payload['request'];
+    $logger->info('Request started', [
+        'method' => $request->getMethod(),
+        'path' => $request->getPath(),
+        'query' => $request->getQueryParams(),
+        'ip' => $_SERVER['REMOTE_ADDR'] ?? 'unknown'
+    ]);
+});
+
+$events->listen('response.sent', function(array $payload) use ($logger) {
+    $response = $payload['response'];
+    $logger->info('Response sent', [
+        'status' => $response->getStatusCode()
+    ]);
+});
+
+$events->listen('exception.thrown', function(array $payload) use ($logger) {
+    $exception = $payload['exception'];
+    $logger->error('Exception thrown', [
+        'message' => $exception->getMessage(),
+        'file' => $exception->getFile(),
+        'line' => $exception->getLine()
+    ]);
+});
+
+// ============================================
+// ÉTAPE 9 : ENREGISTREMENT DES ROUTES
+// ============================================
+// Enregistrer toutes les routes définies dans les contrôleurs
+// CONCEPT PÉDAGOGIQUE : Route Attributes (PHP 8)
+// Les routes sont définies directement dans les contrôleurs avec des attributs #[Route]
+// Le router scanne les contrôleurs et enregistre automatiquement les routes
 $router->registerRoutes(HomeController::class);
 
+// Démarrer l'application
 $app->start();
+
+// Traiter la requête HTTP
 $app->handle();
 PHP;
         
@@ -843,6 +1311,59 @@ PHP;
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-100 min-h-screen">
+    <?php
+    // Afficher les messages flash (success et error) depuis la session
+    // Les messages sont affichés en haut à droite avec auto-hide après 5 secondes
+    use JulienLinard\Core\Session\Session;
+    $headerSuccess = Session::getFlash('success');
+    $headerError = Session::getFlash('error');
+    ?>
+    
+    <?php if ($headerSuccess): ?>
+    <div class="fixed top-4 right-4 z-50 max-w-md w-full">
+        <div class="bg-green-50 border-l-4 border-green-500 p-4 rounded-lg shadow-lg">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                    </svg>
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm font-medium text-green-800"><?= htmlspecialchars($headerSuccess) ?></p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        // Auto-hide après 5 secondes
+        setTimeout(() => {
+            document.querySelector('.bg-green-50')?.parentElement?.remove();
+        }, 5000);
+    </script>
+    <?php endif; ?>
+    
+    <?php if ($headerError): ?>
+    <div class="fixed top-4 right-4 z-50 max-w-md w-full">
+        <div class="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg shadow-lg">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                    </svg>
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm font-medium text-red-800"><?= htmlspecialchars($headerError) ?></p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        // Auto-hide après 5 secondes
+        setTimeout(() => {
+            document.querySelector('.bg-red-50')?.parentElement?.remove();
+        }, 5000);
+    </script>
+    <?php endif; ?>
 PHP;
         
         file_put_contents($templatesDir . '/_header.html.php', $content);
