@@ -6,6 +6,11 @@ namespace Julien;
 
 class Installer
 {
+    /**
+     * Stocke les noms de conteneurs configurés pour les utiliser dans docker-compose.yml
+     */
+    private static ?array $containerNames = null;
+    
     public static function postInstall(): void
     {
         self::displayWelcome();
@@ -19,8 +24,10 @@ class Installer
         $wwwDir = $useDocker ? $baseDir . '/www' : $baseDir;
         
         if ($useDocker) {
-            self::setupDocker($installDoctrine, $installAuth);
+            // Configurer l'environnement AVANT de créer docker-compose.yml
+            // pour avoir les noms de conteneurs
             self::configureEnv();
+            self::setupDocker($installDoctrine, $installAuth);
         } else {
             self::setupLocal($installDoctrine, $installAuth);
         }
@@ -714,7 +721,8 @@ $dbUser = $getEnv('MYSQL_USER');
 $dbPassword = $getEnv('MYSQL_PASSWORD');
 
 // Variables non sensibles : peuvent avoir des valeurs par défaut
-// IMPORTANT : Dans Docker, le host doit être le nom du service (mariadb_app), pas localhost
+// IMPORTANT : Dans Docker, le host doit être le nom du SERVICE Docker
+// Le nom du service correspond au nom du conteneur configuré (MARIADB_CONTAINER)
 $dbHost = $getEnv('MARIADB_CONTAINER', 'mariadb_app');
 $dbPort = $getEnv('MARIADB_PORT', '3306');
 
@@ -726,7 +734,7 @@ $dbPort = is_numeric($dbPort) ? (int)$dbPort : 3306;
 if ($dbHost === 'localhost' || $dbHost === '127.0.0.1') {
     throw new \RuntimeException(
         "Le host de la base de données ne peut pas être 'localhost' ou '127.0.0.1' dans Docker. " .
-        "Utilisez le nom du service Docker (ex: 'mariadb_app') ou définissez MARIADB_CONTAINER dans votre .env"
+        "Utilisez le nom du service Docker (qui correspond à MARIADB_CONTAINER) ou définissez MARIADB_CONTAINER dans votre .env"
     );
 }
 return [
@@ -923,6 +931,12 @@ PHP;
         $envData['PHP_ERROR_REPORTING'] = self::askInput('PHP Error Reporting (E_ALL)', 'E_ALL');
         $envData['PHP_DISPLAY_ERRORS'] = self::askInput('PHP Display Errors (On/Off)', 'On');
         
+        // Stocker les noms de conteneurs pour les utiliser dans docker-compose.yml
+        self::$containerNames = [
+            'apache' => $envData['APACHE_CONTAINER'],
+            'mariadb' => $envData['MARIADB_CONTAINER']
+        ];
+        
         self::createEnvFile($envData);
         
         echo "✅ Fichier .env créé.\n";
@@ -1080,24 +1094,32 @@ ENV;
     
     private static function createDockerCompose(string $baseDir): void
     {
-        $content = <<<'YAML'
+        // Utiliser les noms de conteneurs configurés (ou valeurs par défaut)
+        $apacheService = self::$containerNames['apache'] ?? 'apache_app';
+        $mariadbService = self::$containerNames['mariadb'] ?? 'mariadb_app';
+        
+        // Valider que les noms sont valides pour Docker Compose (lettres, chiffres, underscore, tiret)
+        $apacheService = preg_replace('/[^a-z0-9_-]/', '_', strtolower($apacheService));
+        $mariadbService = preg_replace('/[^a-z0-9_-]/', '_', strtolower($mariadbService));
+        
+        $content = <<<YAML
 services:
-  apache_app:
+  {$apacheService}:
     build: apache
-    container_name: ${APACHE_CONTAINER:-apache_app}
+    container_name: \${APACHE_CONTAINER:-{$apacheService}}
     restart: unless-stopped
     ports:
-      - "${APACHE_PORT:-80}:80"
+      - "\${APACHE_PORT:-80}:80"
     volumes:
       - ./www:/var/www/html
       - ./apache/custom-php.ini:/usr/local/etc/php/conf.d/custom-php.ini
     environment:
-      - PHP_ERROR_REPORTING=${PHP_ERROR_REPORTING:-E_ALL}
-      - PHP_DISPLAY_ERRORS=${PHP_DISPLAY_ERRORS:-On}
+      - PHP_ERROR_REPORTING=\${PHP_ERROR_REPORTING:-E_ALL}
+      - PHP_DISPLAY_ERRORS=\${PHP_DISPLAY_ERRORS:-On}
     networks:
       - app_network
     depends_on:
-      mariadb_app:
+      {$mariadbService}:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/"]
@@ -1109,18 +1131,18 @@ services:
     mem_reservation: 256m
     cpus: 2.0
 
-  mariadb_app:
+  {$mariadbService}:
     image: mariadb:11.3
-    container_name: ${MARIADB_CONTAINER:-mariadb_app}
+    container_name: \${MARIADB_CONTAINER:-{$mariadbService}}
     restart: unless-stopped
     ports:
-      - "${MARIADB_PORT:-3306}:3306"
+      - "\${MARIADB_PORT:-3306}:3306"
     environment:
-      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-root}
-      - MYSQL_DATABASE=${MYSQL_DATABASE:-app_db}
-      - MYSQL_USER=${MYSQL_USER:-app_user}
-      - MYSQL_PASSWORD=${MYSQL_PASSWORD:-app_password}
-      - MYSQL_ROOT_HOST=${MYSQL_ROOT_HOST:-%}
+      - MYSQL_ROOT_PASSWORD=\${MYSQL_ROOT_PASSWORD:-root}
+      - MYSQL_DATABASE=\${MYSQL_DATABASE:-app_db}
+      - MYSQL_USER=\${MYSQL_USER:-app_user}
+      - MYSQL_PASSWORD=\${MYSQL_PASSWORD:-app_password}
+      - MYSQL_ROOT_HOST=\${MYSQL_ROOT_HOST:-%}
     volumes:
       - mysql:/var/lib/mysql
       - ./db:/docker-entrypoint-initdb.d
@@ -1625,23 +1647,32 @@ PHP;
     
     private static function createAliases(string $baseDir): void
     {
-        $content = <<<'BASH'
+        // Utiliser les noms de services configurés (qui correspondent aux noms de conteneurs)
+        $apacheService = self::$containerNames['apache'] ?? 'apache_app';
+        $mariadbService = self::$containerNames['mariadb'] ?? 'mariadb_app';
+        
+        // Valider que les noms sont valides pour Docker Compose
+        $apacheService = preg_replace('/[^a-z0-9_-]/', '_', strtolower($apacheService));
+        $mariadbService = preg_replace('/[^a-z0-9_-]/', '_', strtolower($mariadbService));
+        
+        $content = <<<BASH
 if [ -f .env ]; then
   set -a
   source .env 2>/dev/null || {
-    export $(grep -v '^#' .env | grep -v '^$' | grep -v '^[[:space:]]*$' | xargs)
+    export \$(grep -v '^#' .env | grep -v '^\$' | grep -v '^[[:space:]]*\$' | xargs)
   }
   set +a
 fi
 
-APACHE_CONTAINER="${APACHE_CONTAINER:-apache_app}"
-MARIADB_CONTAINER="${MARIADB_CONTAINER:-mariadb_app}"
+# IMPORTANT: Les noms de services dans docker-compose.yml correspondent aux noms de conteneurs
+# configurés lors de l'installation. Les aliases utilisent ces noms de services.
 
-alias ccomposer='docker compose exec ${APACHE_CONTAINER} composer'
-alias capache='docker compose exec -it ${APACHE_CONTAINER} bash'
-alias cmariadb='docker compose exec -it ${MARIADB_CONTAINER} bash'
-alias db-export='docker compose exec ${MARIADB_CONTAINER} /docker-entrypoint-initdb.d/backup.sh'
-alias db-import='docker compose exec ${MARIADB_CONTAINER} /docker-entrypoint-initdb.d/restore.sh'
+# Alias utilisant les noms de services (configurés lors de l'installation)
+alias ccomposer='docker compose exec {$apacheService} composer'
+alias capache='docker compose exec -it {$apacheService} bash'
+alias cmariadb='docker compose exec -it {$mariadbService} bash'
+alias db-export='docker compose exec {$mariadbService} /docker-entrypoint-initdb.d/backup.sh'
+alias db-import='docker compose exec {$mariadbService} /docker-entrypoint-initdb.d/restore.sh'
 BASH;
         
         file_put_contents($baseDir . '/aliases.sh', $content);
