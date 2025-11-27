@@ -225,7 +225,8 @@ class Installer
     
     private static function moveExistingFiles(string $baseDir, string $wwwDir): void
     {
-        $filesToMove = ['public', 'src', 'templates', 'config', 'vendor'];
+        // Déplacer uniquement les dossiers nécessaires (pas templates car on utilise views/_templates)
+        $filesToMove = ['public', 'src', 'config', 'vendor'];
         
         foreach ($filesToMove as $item) {
             $source = $baseDir . '/' . $item;
@@ -243,7 +244,20 @@ class Installer
     
     private static function cleanupRootFiles(string $baseDir): void
     {
-        $filesToRemove = ['public', 'src', 'templates', 'config', 'vendor', 'composer.lock'];
+        // Supprimer les dossiers et fichiers qui ont été déplacés ou qui ne doivent pas être dans le skeleton généré
+        $filesToRemove = [
+            'public', 
+            'src', 
+            'templates',  // Dossier inutilisé (on utilise views/_templates)
+            'config', 
+            'vendor', 
+            'composer.lock',
+            // Fichiers du skeleton source qui ne doivent pas être dans le projet généré
+            'LICENSE',
+            'README.md',
+            'README.fr.md',
+            'composer.json'  // Le composer.json du skeleton source, pas celui généré
+        ];
         
         foreach ($filesToRemove as $item) {
             $path = $baseDir . '/' . $item;
@@ -1469,6 +1483,7 @@ PHP;
 
         if ($hasDoctrine) {
             $content .= <<<'PHP'
+
 $dbConfig = $app->getConfig()->get('database', []);
 PHP;
         }
