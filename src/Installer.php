@@ -43,6 +43,9 @@ class Installer
         
         self::copyComposerJson($baseDir, $wwwDir, $installDoctrine, $installAuth);
         
+        // Régénérer l'autoloader après la création des fichiers
+        self::regenerateAutoloader($wwwDir);
+        
         self::displayCompletion($useDocker);
     }
     
@@ -131,6 +134,28 @@ class Installer
             echo "⚠️  Installation échouée. À faire manuellement:\n";
             echo "   cd www && composer require {$package}\n";
             echo "   Ou après démarrage Docker: ccomposer require {$package}\n";
+        }
+    }
+    
+    private static function regenerateAutoloader(string $targetDir): void
+    {
+        echo "\n🔄 Régénération de l'autoloader...\n";
+        
+        $composerPath = self::findComposer();
+        if (!$composerPath) {
+            echo "⚠️  Composer n'est pas disponible. Régénérez manuellement:\n";
+            echo "   cd " . basename($targetDir) . " && composer dump-autoload\n";
+            return;
+        }
+        
+        $command = 'cd ' . escapeshellarg($targetDir) . ' && ' . escapeshellarg($composerPath) . ' dump-autoload --no-interaction 2>&1';
+        exec($command, $output, $returnCode);
+        
+        if ($returnCode === 0) {
+            echo "✅ Autoloader régénéré avec succès.\n";
+        } else {
+            echo "⚠️  Erreur lors de la régénération de l'autoloader.\n";
+            echo "   Régénérez manuellement: cd " . basename($targetDir) . " && composer dump-autoload\n";
         }
     }
     
