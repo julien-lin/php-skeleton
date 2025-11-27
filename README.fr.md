@@ -1,4 +1,4 @@
-# PHP Skeleton
+# PHP Skeleton v1.5.3
 
 [🇬🇧 Lire en anglais](README.md) | [🇫🇷 Lire en français](README.fr.md)
 
@@ -8,7 +8,17 @@ Si ce skeleton vous est utile, envisagez de [devenir un sponsor](https://github.
 
 ---
 
-Un skeleton de projet PHP minimal utilisant mes libraries PHP (router, core, auth, doctrine). Point de départ parfait pour construire des applications PHP modernes.
+Un skeleton de projet PHP minimal utilisant mes libraries PHP (router, core, auth, doctrine). Point de départ parfait pour construire des applications PHP modernes avec une architecture propre et une structure prête pour la production.
+
+## ✨ Fonctionnalités
+
+- **🚀 Prêt pour la production** - Entièrement configuré et optimisé dès l'installation
+- **🏗️ Architecture propre** - Structure bien organisée avec couche de services
+- **🔒 Sécurité en priorité** - Configuration sécurisée, protection CSRF, sécurité des sessions
+- **📦 Services auto-générés** - EnvValidator, BootstrapService, EventListenerService
+- **🌐 Support multilingue** - Messages de validation en français, anglais, espagnol
+- **🐳 Prêt pour Docker** - Configuration Docker complète avec Apache et MariaDB
+- **⚡ Zéro configuration** - Fonctionne immédiatement après l'installation
 
 ## 🚀 Installation
 
@@ -18,13 +28,16 @@ Créez un nouveau projet en utilisant Composer:
 composer create-project julienlinard/php-skeleton my-app
 ```
 
-Cela créera un nouveau répertoire `my-app` avec la structure du skeleton.
+Cela créera un nouveau répertoire `my-app` avec la structure du skeleton et lancera un installateur interactif.
 
 ## 📦 Ce qui est inclus
 
-- **Core PHP Framework** - Structure MVC avec injection de dépendances
+- **Core PHP Framework** - Structure MVC avec container d'injection de dépendances
 - **Router** - Routage moderne avec attributs PHP 8
-- **Validation de formulaires** - Validation avancée alimentée par php-validator (inclus dans core-php)
+- **Validation de formulaires** - Validation avancée alimentée par php-validator avec support multilingue
+- **Logging** - SimpleLogger intégré avec logging structuré
+- **Gestion d'erreurs** - Gestion d'erreurs complète avec modes debug/production
+- **Gestion de sessions** - Gestion sécurisée des sessions avec messages flash
 - **Optionnel: Doctrine PHP** - ORM pour la gestion de base de données
 - **Optionnel: Auth PHP** - Système d'authentification et d'autorisation
 
@@ -42,13 +55,17 @@ L'installateur vous demandera de configurer :
 - Identifiants de base de données (mot de passe root, nom de la base, utilisateur, mot de passe)
 - Paramètres de rapport d'erreurs PHP
 
-Un fichier `.env` sera automatiquement généré avec vos réponses.
+Deux fichiers `.env` seront automatiquement générés :
+- `.env` à la racine - Pour la configuration Docker Compose
+- `www/.env` - Pour la configuration de l'application
 
 ### Étape 3 : Packages optionnels
 - **Installer Doctrine ?** - Ajoute les capacités ORM de base de données
 - **Installer Auth ?** - Ajoute le système d'authentification
 
 Répondez simplement `y` pour oui ou `N` pour non (par défaut).
+
+**L'autoloader est automatiquement régénéré** après l'installation, votre application est donc prête à fonctionner immédiatement !
 
 ## ⚡ Démarrage rapide
 
@@ -66,6 +83,7 @@ source aliases.sh
 docker compose up -d
 
 # Installer les dépendances dans le container
+cd www
 ccomposer install
 
 # Visiter votre application
@@ -96,46 +114,93 @@ php -S localhost:8000 -t public
 # http://localhost:8000
 ```
 
-Vous devriez voir une réponse JSON:
-
-```json
-{
-    "message": "Hello World!",
-    "status": "success",
-    "framework": "PHP Skeleton by Julien Linard"
-}
-```
-
 ## 📁 Structure du projet
 
+### Structure avec Docker
 ```
 my-app/
-├── apache/          # Configuration Docker Apache (si Docker choisi)
+├── apache/              # Configuration Docker Apache
 │   ├── Dockerfile
 │   └── custom-php.ini
-├── config/          # Fichiers de configuration
-├── db/              # Scripts de base de données (si Docker choisi)
+├── db/                  # Scripts de base de données
 │   ├── backup.sh
 │   └── restore.sh
-├── public/          # Point d'entrée public (racine web)
-│   ├── index.php    # Fichier bootstrap
-│   └── .htaccess    # Règles de réécriture Apache (si Docker)
-├── src/             # Code source de l'application
-├── templates/       # Templates de vues
-├── vendor/          # Dépendances Composer
-├── .env             # Variables d'environnement (généré, pas dans git)
-├── .env.example     # Modèle d'environnement
-├── aliases.sh       # Aliases Docker (si Docker choisi)
-├── docker-compose.yml # Configuration Docker Compose (si Docker choisi)
-└── composer.json    # Dépendances du projet
+├── www/                 # Racine de l'application (Docker)
+│   ├── config/          # Fichiers de configuration
+│   │   └── database.php # Configuration sécurisée de la base de données
+│   ├── migrations/      # Migrations de base de données
+│   ├── public/          # Point d'entrée public
+│   │   ├── index.php    # Fichier bootstrap
+│   │   └── .htaccess    # Règles de réécriture Apache
+│   ├── src/             # Code source de l'application
+│   │   ├── Controller/  # Contrôleurs
+│   │   ├── Entity/      # Entités Doctrine
+│   │   ├── Middleware/  # Middlewares personnalisés
+│   │   ├── Repository/  # Répositories de données
+│   │   └── Service/     # Services de logique métier
+│   │       ├── BootstrapService.php      # Configuration bootstrap
+│   │       ├── EnvValidator.php          # Validation de l'environnement
+│   │       └── EventListenerService.php  # Écouteurs d'événements
+│   ├── storage/         # Répertoire de stockage
+│   │   └── logs/        # Logs de l'application
+│   ├── views/           # Templates de vues
+│   │   ├── _templates/  # Templates de mise en page
+│   │   └── home/        # Vues de pages
+│   ├── .env             # Variables d'environnement de l'application
+│   ├── .env.example     # Modèle d'environnement
+│   ├── .gitignore       # Règles Git ignore
+│   └── composer.json    # Dépendances du projet
+├── .env                 # Variables d'environnement Docker Compose
+├── .env.example         # Modèle d'environnement Docker
+├── aliases.sh           # Aliases Docker
+├── docker-compose.yml   # Configuration Docker Compose
+└── composer.json        # composer.json racine
 ```
+
+### Structure en local
+```
+my-app/
+├── config/              # Fichiers de configuration
+├── migrations/          # Migrations de base de données
+├── public/              # Point d'entrée public
+├── src/                 # Code source de l'application
+│   └── Service/        # Services auto-générés
+├── storage/             # Répertoire de stockage
+│   └── logs/          # Logs de l'application
+├── views/               # Templates de vues
+├── .env                # Variables d'environnement
+├── .env.example        # Modèle d'environnement
+└── composer.json       # Dépendances du projet
+```
+
+## 🛠️ Services Auto-Générés
+
+Le skeleton génère automatiquement trois services essentiels :
+
+### 1. EnvValidator
+Valide les variables d'environnement au démarrage de l'application :
+- Validation de `APP_SECRET` (minimum 32 caractères)
+- Validation de `APP_LOCALE` (supporté : fr, en, es)
+
+### 2. BootstrapService
+Centralise la configuration du bootstrap :
+- Configuration du mode debug
+- Configuration du gestionnaire d'erreurs avec logging
+- Configuration de la sécurité des sessions
+
+### 3. EventListenerService
+Enregistre les écouteurs d'événements de l'application :
+- Logging des requêtes
+- Logging des réponses
+- Logging des exceptions
 
 ## 📚 Packages disponibles
 
 Ce skeleton utilise les packages suivants:
 
 - **[julienlinard/php-router](https://packagist.org/packages/julienlinard/php-router)** - Routeur moderne avec attributs PHP 8
-- **[julienlinard/core-php](https://packagist.org/packages/julienlinard/core-php)** - Framework MVC avec container DI, inclut la validation de formulaires
+- **[julienlinard/core-php](https://packagist.org/packages/julienlinard/core-php)** - Framework MVC avec container DI
+- **[julienlinard/php-validator](https://packagist.org/packages/julienlinard/php-validator)** - Validation avancée avec support multilingue
 - **[julienlinard/doctrine-php](https://packagist.org/packages/julienlinard/doctrine-php)** - ORM (optionnel)
 - **[julienlinard/auth-php](https://packagist.org/packages/julienlinard/auth-php)** - Authentification (optionnel)
 
@@ -143,12 +208,12 @@ Ce skeleton utilise les packages suivants:
 
 ### Ajouter des contrôleurs
 
-Créez des contrôleurs dans le répertoire `src/`. Les contrôleurs doivent étendre la classe de base `Controller`:
+Créez des contrôleurs dans le répertoire `src/Controller/`. Les contrôleurs doivent étendre la classe de base `Controller`:
 
 ```php
 <?php
 
-namespace Julien;
+namespace App\Controller;
 
 use JulienLinard\Core\Controller\Controller;
 use JulienLinard\Router\Attributes\Route;
@@ -172,7 +237,7 @@ class MonController extends Controller
 }
 ```
 
-Enregistrez les routes dans `public/index.php`:
+Enregistrez les routes dans `public/index.php` (ou `www/public/index.php` pour Docker):
 
 ```php
 $router->registerRoutes(MonController::class);
@@ -180,26 +245,29 @@ $router->registerRoutes(MonController::class);
 
 ### Validation de formulaires
 
-Le skeleton inclut `core-php` qui fournit une validation de formulaires alimentée par `php-validator`:
+Le skeleton inclut `php-validator` avec support multilingue:
 
 ```php
 <?php
 
-namespace Julien;
+namespace App\Controller;
 
 use JulienLinard\Core\Controller\Controller;
-use JulienLinard\Core\Form\Validator;
+use JulienLinard\Core\Form\Validator as CoreValidator;
 use JulienLinard\Router\Attributes\Route;
 use JulienLinard\Router\Request;
 use JulienLinard\Router\Response;
 
 class ContactController extends Controller
 {
+    public function __construct(
+        private CoreValidator $validator
+    ) {}
+    
     #[Route(path: '/contact', methods: ['POST'], name: 'contact.submit')]
     public function submit(Request $request): Response
     {
-        $validator = new Validator();
-        $result = $validator->validate($request->getData(), [
+        $result = $this->validator->validate($request->getData(), [
             'name' => 'required|min:3|max:100',
             'email' => 'required|email',
             'message' => 'required|min:10|max:1000'
@@ -218,19 +286,93 @@ class ContactController extends Controller
 }
 ```
 
+### Utiliser l'injection de dépendances
+
+Les services sont automatiquement enregistrés dans le container DI. Accédez-y dans les contrôleurs:
+
+```php
+<?php
+
+namespace App\Controller;
+
+use JulienLinard\Core\Controller\Controller;
+use JulienLinard\Doctrine\EntityManager;
+use JulienLinard\Auth\AuthManager;
+
+class MonController extends Controller
+{
+    public function __construct(
+        private EntityManager $em,
+        private AuthManager $auth
+    ) {}
+}
+```
+
+### Messages Flash
+
+Les messages flash sont automatiquement affichés dans le template d'en-tête:
+
+```php
+use JulienLinard\Core\Session\Session;
+
+// Définir un message flash
+Session::setFlash('success', 'Opération réussie !');
+Session::setFlash('error', 'Une erreur est survenue !');
+```
+
+### Logging
+
+Utilisez SimpleLogger pour le logging structuré:
+
+```php
+use JulienLinard\Core\Logging\SimpleLogger;
+
+$logger = new SimpleLogger('/path/to/logs/app.log');
+$logger->info('Utilisateur connecté', ['user_id' => 123]);
+$logger->error('Échec de connexion à la base de données', ['error' => $e->getMessage()]);
+```
+
 ### Configuration
 
-Créez un fichier `.env` à la racine du projet pour les variables d'environnement:
+Les variables d'environnement sont automatiquement chargées depuis `.env`:
 
 ```env
+# Application
 APP_DEBUG=true
-APP_ENV=development
+APP_LOCALE=fr
+APP_SECRET=votre-cle-secrete-ici-min-32-caracteres
+
+# Base de données (pour Docker, utilisez le nom du service comme host)
+MARIADB_CONTAINER=mariadb_app
+MARIADB_PORT=3306
+MYSQL_DATABASE=app_db
+MYSQL_USER=app_user
+MYSQL_PASSWORD=app_password
 ```
+
+## 🔒 Fonctionnalités de sécurité
+
+- **Protection CSRF** - Génération et validation automatiques des tokens CSRF
+- **Sécurité des sessions** - Cookies HttpOnly, SameSite et sécurisés
+- **Validation de l'environnement** - Validation automatique des variables d'environnement requises
+- **Configuration sécurisée de la base de données** - Aucun identifiant en dur, validation stricte
+- **Gestion d'erreurs** - Gestion d'erreurs sécurisée pour la production avec logging
 
 ## 📝 Prérequis
 
 - PHP 8.1 ou supérieur
 - Composer
+- Docker (optionnel, pour la configuration Docker)
+
+## 🆕 Nouveautés dans v1.5.3
+
+- ✅ Régénération automatique de l'autoloader après l'installation
+- ✅ Architecture propre avec couche de services
+- ✅ Services auto-générés (EnvValidator, BootstrapService, EventListenerService)
+- ✅ Support multilingue de validation (fr, en, es)
+- ✅ Configuration sécurisée dès l'installation
+- ✅ Messages flash avec auto-hide
+- ✅ Structure prête pour la production
 
 ## 📄 License
 
@@ -251,4 +393,3 @@ Si ce skeleton vous est utile, envisagez de [devenir un sponsor](https://github.
 ---
 
 **Développé avec ❤️ par Julien Linard**
-

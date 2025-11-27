@@ -1,4 +1,4 @@
-# PHP Skeleton
+# PHP Skeleton v1.5.3
 
 [🇫🇷 Read in French](README.fr.md) | [🇬🇧 Read in English](README.md)
 
@@ -8,7 +8,17 @@ If this skeleton is useful to you, consider [becoming a sponsor](https://github.
 
 ---
 
-A minimal PHP project skeleton using my PHP libraries (router, core, auth, doctrine). Perfect starting point for building modern PHP applications.
+A minimal PHP project skeleton using my PHP libraries (router, core, auth, doctrine). Perfect starting point for building modern PHP applications with clean architecture and production-ready structure.
+
+## ✨ Features
+
+- **🚀 Production-Ready** - Fully configured and optimized out of the box
+- **🏗️ Clean Architecture** - Well-organized structure with service layer
+- **🔒 Security First** - Secure configuration, CSRF protection, session security
+- **📦 Auto-Generated Services** - EnvValidator, BootstrapService, EventListenerService
+- **🌐 Multilingual Support** - Validation messages in French, English, Spanish
+- **🐳 Docker Ready** - Complete Docker setup with Apache and MariaDB
+- **⚡ Zero Configuration** - Works immediately after installation
 
 ## 🚀 Installation
 
@@ -18,13 +28,16 @@ Create a new project using Composer:
 composer create-project julienlinard/php-skeleton my-app
 ```
 
-This will create a new directory `my-app` with the skeleton structure.
+This will create a new directory `my-app` with the skeleton structure and launch an interactive installer.
 
 ## 📦 What's Included
 
-- **Core PHP Framework** - MVC structure with dependency injection
+- **Core PHP Framework** - MVC structure with dependency injection container
 - **Router** - Modern routing with PHP 8 attributes
-- **Form Validation** - Advanced validation powered by php-validator (included in core-php)
+- **Form Validation** - Advanced validation powered by php-validator with multilingual support
+- **Logging** - Integrated SimpleLogger with structured logging
+- **Error Handling** - Comprehensive error handling with debug/production modes
+- **Session Management** - Secure session handling with flash messages
 - **Optional: Doctrine PHP** - ORM for database management
 - **Optional: Auth PHP** - Authentication and authorization system
 
@@ -42,13 +55,17 @@ The installer will ask you to configure:
 - Database credentials (root password, database name, user, password)
 - PHP error reporting settings
 
-A `.env` file will be automatically generated with your answers.
+Two `.env` files will be automatically generated:
+- Root `.env` - For Docker Compose configuration
+- `www/.env` - For application configuration
 
 ### Step 3: Optional Packages
 - **Install Doctrine?** - Adds database ORM capabilities
 - **Install Auth?** - Adds authentication system
 
 Simply answer `y` for yes or `N` for no (default).
+
+**The autoloader is automatically regenerated** after installation, so your application is ready to run immediately!
 
 ## ⚡ Quick Start
 
@@ -66,6 +83,7 @@ source aliases.sh
 docker compose up -d
 
 # Install dependencies in container
+cd www
 ccomposer install
 
 # Visit your application
@@ -96,46 +114,93 @@ php -S localhost:8000 -t public
 # http://localhost:8000
 ```
 
-You should see a JSON response:
-
-```json
-{
-    "message": "Hello World!",
-    "status": "success",
-    "framework": "PHP Skeleton by Julien Linard"
-}
-```
-
 ## 📁 Project Structure
 
+### Docker Setup Structure
 ```
 my-app/
-├── apache/          # Docker Apache configuration (if Docker chosen)
+├── apache/              # Docker Apache configuration
 │   ├── Dockerfile
 │   └── custom-php.ini
-├── config/          # Configuration files
-├── db/              # Database scripts (if Docker chosen)
+├── db/                  # Database scripts
 │   ├── backup.sh
 │   └── restore.sh
-├── public/          # Public entry point (web root)
-│   ├── index.php    # Bootstrap file
-│   └── .htaccess    # Apache rewrite rules (if Docker)
-├── src/             # Application source code
-├── templates/       # View templates
-├── vendor/          # Composer dependencies
-├── .env             # Environment variables (generated, not in git)
-├── .env.example     # Environment template
-├── aliases.sh       # Docker aliases (if Docker chosen)
-├── docker-compose.yml # Docker Compose config (if Docker chosen)
-└── composer.json    # Project dependencies
+├── www/                 # Application root (Docker)
+│   ├── config/          # Configuration files
+│   │   └── database.php # Secure database config
+│   ├── migrations/      # Database migrations
+│   ├── public/          # Public entry point
+│   │   ├── index.php    # Bootstrap file
+│   │   └── .htaccess    # Apache rewrite rules
+│   ├── src/             # Application source code
+│   │   ├── Controller/   # Controllers
+│   │   ├── Entity/      # Doctrine entities
+│   │   ├── Middleware/  # Custom middlewares
+│   │   ├── Repository/  # Data repositories
+│   │   └── Service/     # Business logic services
+│   │       ├── BootstrapService.php      # Bootstrap configuration
+│   │       ├── EnvValidator.php          # Environment validation
+│   │       └── EventListenerService.php  # Event listeners
+│   ├── storage/         # Storage directory
+│   │   └── logs/        # Application logs
+│   ├── views/           # View templates
+│   │   ├── _templates/  # Layout templates
+│   │   └── home/        # Page views
+│   ├── .env             # Application environment variables
+│   ├── .env.example     # Environment template
+│   ├── .gitignore       # Git ignore rules
+│   └── composer.json    # Project dependencies
+├── .env                 # Docker Compose environment variables
+├── .env.example         # Docker environment template
+├── aliases.sh           # Docker aliases
+├── docker-compose.yml   # Docker Compose config
+└── composer.json        # Root composer.json
 ```
+
+### Local Setup Structure
+```
+my-app/
+├── config/              # Configuration files
+├── migrations/          # Database migrations
+├── public/              # Public entry point
+├── src/                # Application source code
+│   └── Service/        # Auto-generated services
+├── storage/            # Storage directory
+│   └── logs/          # Application logs
+├── views/              # View templates
+├── .env               # Environment variables
+├── .env.example       # Environment template
+└── composer.json      # Project dependencies
+```
+
+## 🛠️ Auto-Generated Services
+
+The skeleton automatically generates three essential services:
+
+### 1. EnvValidator
+Validates environment variables on application startup:
+- `APP_SECRET` validation (minimum 32 characters)
+- `APP_LOCALE` validation (supported: fr, en, es)
+
+### 2. BootstrapService
+Centralizes bootstrap configuration:
+- Debug mode configuration
+- Error handler setup with logging
+- Session security configuration
+
+### 3. EventListenerService
+Registers application event listeners:
+- Request logging
+- Response logging
+- Exception logging
 
 ## 📚 Available Packages
 
 This skeleton uses the following packages:
 
 - **[julienlinard/php-router](https://packagist.org/packages/julienlinard/php-router)** - Modern router with PHP 8 attributes
-- **[julienlinard/core-php](https://packagist.org/packages/julienlinard/core-php)** - MVC framework with DI container, includes form validation
+- **[julienlinard/core-php](https://packagist.org/packages/julienlinard/core-php)** - MVC framework with DI container
+- **[julienlinard/php-validator](https://packagist.org/packages/julienlinard/php-validator)** - Advanced validation with multilingual support
 - **[julienlinard/doctrine-php](https://packagist.org/packages/julienlinard/doctrine-php)** - ORM (optional)
 - **[julienlinard/auth-php](https://packagist.org/packages/julienlinard/auth-php)** - Authentication (optional)
 
@@ -143,12 +208,12 @@ This skeleton uses the following packages:
 
 ### Adding Controllers
 
-Create controllers in the `src/` directory. Controllers should extend the base `Controller` class:
+Create controllers in the `src/Controller/` directory. Controllers should extend the base `Controller` class:
 
 ```php
 <?php
 
-namespace Julien;
+namespace App\Controller;
 
 use JulienLinard\Core\Controller\Controller;
 use JulienLinard\Router\Attributes\Route;
@@ -172,7 +237,7 @@ class MyController extends Controller
 }
 ```
 
-Register routes in `public/index.php`:
+Register routes in `public/index.php` (or `www/public/index.php` for Docker):
 
 ```php
 $router->registerRoutes(MyController::class);
@@ -180,26 +245,29 @@ $router->registerRoutes(MyController::class);
 
 ### Form Validation
 
-The skeleton includes `core-php` which provides form validation powered by `php-validator`:
+The skeleton includes `php-validator` with multilingual support:
 
 ```php
 <?php
 
-namespace Julien;
+namespace App\Controller;
 
 use JulienLinard\Core\Controller\Controller;
-use JulienLinard\Core\Form\Validator;
+use JulienLinard\Core\Form\Validator as CoreValidator;
 use JulienLinard\Router\Attributes\Route;
 use JulienLinard\Router\Request;
 use JulienLinard\Router\Response;
 
 class ContactController extends Controller
 {
+    public function __construct(
+        private CoreValidator $validator
+    ) {}
+    
     #[Route(path: '/contact', methods: ['POST'], name: 'contact.submit')]
     public function submit(Request $request): Response
     {
-        $validator = new Validator();
-        $result = $validator->validate($request->getData(), [
+        $result = $this->validator->validate($request->getData(), [
             'name' => 'required|min:3|max:100',
             'email' => 'required|email',
             'message' => 'required|min:10|max:1000'
@@ -218,19 +286,93 @@ class ContactController extends Controller
 }
 ```
 
+### Using Dependency Injection
+
+Services are automatically registered in the DI container. Access them in controllers:
+
+```php
+<?php
+
+namespace App\Controller;
+
+use JulienLinard\Core\Controller\Controller;
+use JulienLinard\Doctrine\EntityManager;
+use JulienLinard\Auth\AuthManager;
+
+class MyController extends Controller
+{
+    public function __construct(
+        private EntityManager $em,
+        private AuthManager $auth
+    ) {}
+}
+```
+
+### Flash Messages
+
+Flash messages are automatically displayed in the header template:
+
+```php
+use JulienLinard\Core\Session\Session;
+
+// Set flash message
+Session::setFlash('success', 'Operation completed successfully!');
+Session::setFlash('error', 'An error occurred!');
+```
+
+### Logging
+
+Use SimpleLogger for structured logging:
+
+```php
+use JulienLinard\Core\Logging\SimpleLogger;
+
+$logger = new SimpleLogger('/path/to/logs/app.log');
+$logger->info('User logged in', ['user_id' => 123]);
+$logger->error('Database connection failed', ['error' => $e->getMessage()]);
+```
+
 ### Configuration
 
-Create a `.env` file in the project root for environment variables:
+Environment variables are automatically loaded from `.env`:
 
 ```env
+# Application
 APP_DEBUG=true
-APP_ENV=development
+APP_LOCALE=fr
+APP_SECRET=your-secret-key-here-min-32-chars
+
+# Database (for Docker, use service name as host)
+MARIADB_CONTAINER=mariadb_app
+MARIADB_PORT=3306
+MYSQL_DATABASE=app_db
+MYSQL_USER=app_user
+MYSQL_PASSWORD=app_password
 ```
+
+## 🔒 Security Features
+
+- **CSRF Protection** - Automatic CSRF token generation and validation
+- **Session Security** - HttpOnly, SameSite, and secure cookies
+- **Environment Validation** - Automatic validation of required environment variables
+- **Secure Database Config** - No hardcoded credentials, strict validation
+- **Error Handling** - Production-safe error handling with logging
 
 ## 📝 Requirements
 
 - PHP 8.1 or higher
 - Composer
+- Docker (optional, for Docker setup)
+
+## 🆕 What's New in v1.5.3
+
+- ✅ Automatic autoloader regeneration after installation
+- ✅ Clean architecture with service layer
+- ✅ Auto-generated services (EnvValidator, BootstrapService, EventListenerService)
+- ✅ Multilingual validation support (fr, en, es)
+- ✅ Secure configuration out of the box
+- ✅ Flash messages with auto-hide
+- ✅ Production-ready structure
 
 ## 📄 License
 
@@ -251,4 +393,3 @@ If this skeleton is useful to you, consider [becoming a sponsor](https://github.
 ---
 
 **Developed with ❤️ by Julien Linard**
-
