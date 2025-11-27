@@ -335,6 +335,7 @@ class Installer
         file_put_contents($wwwDir . '/src/Middleware/.gitkeep', '');
         file_put_contents($wwwDir . '/src/Repository/.gitkeep', '');
         file_put_contents($wwwDir . '/src/Service/.gitkeep', '');
+        file_put_contents($wwwDir . '/storage/logs/.gitkeep', '');
         
         // Créer le service Logger
         self::createLoggerService($wwwDir . '/src/Service');
@@ -554,10 +555,10 @@ $dbPassword = $getEnv('MYSQL_PASSWORD');
 // Variables non sensibles : peuvent avoir des valeurs par défaut
 // IMPORTANT : Dans Docker, le host doit être le nom du service (mariadb_app), pas localhost
 $dbHost = $getEnv('MARIADB_CONTAINER', 'mariadb_app');
-$dbPort = 3306;
+$dbPort = $getEnv('MARIADB_PORT', '3306');
 
 // Convertir le port en int si c'est une string
-$dbPort = is_numeric($dbPort) ? (int)$dbPort : null;
+$dbPort = is_numeric($dbPort) ? (int)$dbPort : 3306;
 
 // Validation : s'assurer que le host n'est pas localhost en Docker
 // (cela ne fonctionnerait pas car chaque container a son propre localhost)
@@ -570,7 +571,7 @@ if ($dbHost === 'localhost' || $dbHost === '127.0.0.1') {
 return [
     'driver' => 'mysql',
     'host' => $dbHost,
-    'port' => $dbPort ?: 3306, // Port par défaut MySQL si non défini
+    'port' => $dbPort,
     'dbname' => $dbName,
     'user' => $dbUser,
     'password' => $dbPassword,
@@ -589,7 +590,8 @@ PHP;
         $require = [
             'php' => '^8.1',
             'julienlinard/core-php' => '^1.0',
-            'julienlinard/php-router' => '^1.0'
+            'julienlinard/php-router' => '^1.0',
+            'julienlinard/php-validator' => '^1.0'
         ];
         
         if ($hasDoctrine) {
@@ -715,6 +717,7 @@ PHP;
         file_put_contents($baseDir . '/src/Middleware/.gitkeep', '');
         file_put_contents($baseDir . '/src/Repository/.gitkeep', '');
         file_put_contents($baseDir . '/src/Service/.gitkeep', '');
+        file_put_contents($baseDir . '/storage/logs/.gitkeep', '');
         
         // Créer le service Logger
         self::createLoggerService($baseDir . '/src/Service');
@@ -796,6 +799,61 @@ PHP;
         }
         
         file_put_contents($wwwEnvPath, $wwwContent);
+        
+        // Créer le fichier .env.example
+        self::createEnvExample($baseDir, $wwwDir);
+    }
+    
+    private static function createEnvExample(string $baseDir, string $wwwDir): void
+    {
+        $envExamplePath = $baseDir . '/.env.example';
+        $wwwEnvExamplePath = $wwwDir . '/.env.example';
+        
+        // .env.example à la racine (pour Docker)
+        $rootContent = <<<'ENV'
+# Configuration Docker
+# Copiez ce fichier en .env et modifiez les valeurs selon vos besoins
+
+APACHE_CONTAINER=apache_app
+APACHE_PORT=80
+MARIADB_CONTAINER=mariadb_app
+MARIADB_PORT=3306
+MYSQL_ROOT_PASSWORD=root
+MYSQL_DATABASE=app_db
+MYSQL_USER=app_user
+MYSQL_PASSWORD=app_password
+PHP_ERROR_REPORTING=E_ALL
+PHP_DISPLAY_ERRORS=On
+ENV;
+        
+        file_put_contents($envExamplePath, $rootContent);
+        
+        // .env.example dans www/ (pour l'application)
+        $wwwContent = <<<'ENV'
+# Configuration Application
+# Copiez ce fichier en .env et modifiez les valeurs selon vos besoins
+
+# Configuration Base de données
+MARIADB_CONTAINER=mariadb_app
+MYSQL_DATABASE=app_db
+MYSQL_USER=app_user
+MYSQL_PASSWORD=app_password
+PHP_ERROR_REPORTING=E_ALL
+PHP_DISPLAY_ERRORS=On
+
+# Configuration Application
+# Générez un secret sécurisé avec: php -r 'echo bin2hex(random_bytes(32)) . PHP_EOL;'
+APP_SECRET=
+APP_DEBUG=1
+APP_LOCALE=fr
+ENV;
+        
+        // Créer le dossier www/ s'il n'existe pas
+        if (!is_dir($wwwDir)) {
+            mkdir($wwwDir, 0755, true);
+        }
+        
+        file_put_contents($wwwEnvExamplePath, $wwwContent);
     }
     
     private static function createDockerFiles(string $baseDir): void
@@ -1086,7 +1144,13 @@ $app = Application::create(dirname(__DIR__));
 // IMPORTANT : Charger .env AVANT la configuration
 // Les fichiers de configuration (comme database.php) ont besoin des variables d'environnement
 // CONCEPT : Variables d'environnement pour la sécurité (identifiants, secrets)
-$app->loadEnv();
+try {
+    $app->loadEnv();
+} catch (\Exception $e) {
+    die("❌ Erreur lors du chargement du fichier .env: " . $e->getMessage() . "\n" .
+        "   Veuillez créer un fichier .env dans le répertoire www/ avec les variables nécessaires.\n" .
+        "   Consultez .env.example pour un exemple.\n");
+}
 
 // ============================================
 // ÉTAPE 3 : CHARGEMENT DE LA CONFIGURATION
@@ -1129,6 +1193,22 @@ $app->getConfig()->set('app.debug', $debug);
 error_reporting($debug ? E_ALL : 0);
 ini_set('display_errors', $debug ? '1' : '0');
 
+// Valider APP_SECRET (doit être défini et d'au moins 32 caractères pour la sécurité)
+$appSecret = getenv('APP_SECRET');
+if (empty($appSecret)) {
+    throw new \RuntimeException(
+        "APP_SECRET n'est pas défini dans votre fichier .env. " .
+        "Ce secret est utilisé pour la sécurité (sessions, tokens CSRF, etc.). " .
+        "Générez-en un avec: php -r 'echo bin2hex(random_bytes(32)) . PHP_EOL;'"
+    );
+}
+if (strlen($appSecret) < 32) {
+    throw new \RuntimeException(
+        "APP_SECRET doit contenir au moins 32 caractères pour la sécurité. " .
+        "Générez-en un nouveau avec: php -r 'echo bin2hex(random_bytes(32)) . PHP_EOL;'"
+    );
+}
+
 // Configurer l'ErrorHandler avec logging
 // CONCEPT : Gestion centralisée des erreurs avec logging
 $logFile = __DIR__ . '/../storage/logs/app.log';
@@ -1136,6 +1216,13 @@ $logFile = __DIR__ . '/../storage/logs/app.log';
 $logDir = dirname($logFile);
 if (!is_dir($logDir)) {
     mkdir($logDir, 0755, true);
+}
+// Vérifier que le répertoire est accessible en écriture
+if (!is_writable($logDir)) {
+    throw new \RuntimeException(
+        "Le répertoire de logs '{$logDir}' n'est pas accessible en écriture. " .
+        "Veuillez vérifier les permissions (chmod 755 recommandé)."
+    );
 }
 $logger = new SimpleLogger($logFile);
 $errorHandler = new ErrorHandler($app, $logger, $debug, __DIR__ . '/../views');
@@ -1214,6 +1301,15 @@ PHP;
 // CONCEPT : Configuration centralisée de la locale pour les messages d'erreur multilingues
 // La locale peut être définie via la variable d'environnement APP_LOCALE (défaut: 'fr')
 $appLocale = getenv('APP_LOCALE') ?: 'fr';
+// Valider que la locale est supportée (fr, en, es)
+$supportedLocales = ['fr', 'en', 'es'];
+if (!in_array($appLocale, $supportedLocales, true)) {
+    throw new \RuntimeException(
+        "Locale non supportée: '{$appLocale}'. " .
+        "Locales supportées: " . implode(', ', $supportedLocales) . ". " .
+        "Définissez APP_LOCALE dans votre fichier .env."
+    );
+}
 $container->singleton(PhpValidator::class, function() use ($appLocale) {
     return new PhpValidator($appLocale);
 });
@@ -1227,6 +1323,15 @@ $container->singleton(CoreValidator::class, function() use ($container) {
     $coreValidator->setLocale($phpValidator->getLocale());
     return $coreValidator;
 });
+
+// Enregistrer FileUploadService comme singleton (si la classe existe)
+// CONCEPT : Service d'upload de fichiers avec validation intégrée
+// Note : Ce service doit être créé dans src/Service/FileUploadService.php si nécessaire
+if (class_exists(\App\Service\FileUploadService::class)) {
+    $container->singleton(\App\Service\FileUploadService::class, function() use ($container) {
+        return new \App\Service\FileUploadService();
+    });
+}
 
 // ============================================
 // ÉTAPE 7 : CONFIGURATION DU ROUTER ET MIDDLEWARES
@@ -1394,7 +1499,6 @@ APACHE_CONTAINER="${APACHE_CONTAINER:-apache_app}"
 MARIADB_CONTAINER="${MARIADB_CONTAINER:-mariadb_app}"
 
 alias ccomposer='docker compose exec ${APACHE_CONTAINER} composer'
-alias cconsole='docker compose exec ${APACHE_CONTAINER} symfony console'
 alias capache='docker compose exec -it ${APACHE_CONTAINER} bash'
 alias cmariadb='docker compose exec -it ${MARIADB_CONTAINER} bash'
 alias db-export='docker compose exec ${MARIADB_CONTAINER} /docker-entrypoint-initdb.d/backup.sh'
