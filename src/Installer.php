@@ -217,6 +217,7 @@ class Installer
         self::createHomeView($homeDir);
         self::createWwwDirectories($wwwDir);
         self::createConfigDatabase($wwwDir);
+        self::createBootstrapServices($wwwDir);
         self::createPublicIndex($publicDir, $installDoctrine, $installAuth);
         
         echo "✅ Structure www/ créée.\n";
@@ -489,6 +490,276 @@ PHP;
         file_put_contents($serviceDir . '/Logger.php', $content);
     }
     
+    private static function createBootstrapServices(string $baseDir): void
+    {
+        $serviceDir = $baseDir . '/src/Service';
+        if (!is_dir($serviceDir)) {
+            mkdir($serviceDir, 0755, true);
+        }
+        
+        self::createEnvValidator($serviceDir);
+        self::createEventListenerService($serviceDir);
+        self::createBootstrapService($serviceDir);
+    }
+    
+    private static function createEnvValidator(string $serviceDir): void
+    {
+        $content = <<<'PHP'
+<?php
+
+/**
+ * ============================================
+ * ENV VALIDATOR SERVICE
+ * ============================================
+ * 
+ * Service de validation des variables d'environnement
+ * Centralise toute la logique de validation pour une meilleure maintenabilité
+ */
+
+declare(strict_types=1);
+
+namespace App\Service;
+
+class EnvValidator
+{
+    /**
+     * Valide toutes les variables d'environnement requises
+     * 
+     * @throws \RuntimeException Si une variable requise est manquante ou invalide
+     */
+    public static function validate(): void
+    {
+        self::validateAppSecret();
+        self::validateAppLocale();
+    }
+    
+    /**
+     * Valide APP_SECRET
+     * 
+     * @throws \RuntimeException Si APP_SECRET est manquant ou trop court
+     */
+    private static function validateAppSecret(): void
+    {
+        $appSecret = getenv('APP_SECRET');
+        
+        if (empty($appSecret)) {
+            throw new \RuntimeException(
+                "APP_SECRET n'est pas défini dans votre fichier .env. " .
+                "Ce secret est utilisé pour la sécurité (sessions, tokens CSRF, etc.). " .
+                "Générez-en un avec: php -r 'echo bin2hex(random_bytes(32)) . PHP_EOL;'"
+            );
+        }
+        
+        if (strlen($appSecret) < 32) {
+            throw new \RuntimeException(
+                "APP_SECRET doit contenir au moins 32 caractères pour la sécurité. " .
+                "Générez-en un nouveau avec: php -r 'echo bin2hex(random_bytes(32)) . PHP_EOL;'"
+            );
+        }
+    }
+    
+    /**
+     * Valide APP_LOCALE
+     * 
+     * @throws \RuntimeException Si APP_LOCALE n'est pas supportée
+     */
+    private static function validateAppLocale(): void
+    {
+        $appLocale = getenv('APP_LOCALE') ?: 'fr';
+        $supportedLocales = ['fr', 'en', 'es'];
+        
+        if (!in_array($appLocale, $supportedLocales, true)) {
+            throw new \RuntimeException(
+                "Locale non supportée: '{$appLocale}'. " .
+                "Locales supportées: " . implode(', ', $supportedLocales) . ". " .
+                "Définissez APP_LOCALE dans votre fichier .env."
+            );
+        }
+    }
+}
+PHP;
+        
+        file_put_contents($serviceDir . '/EnvValidator.php', $content);
+    }
+    
+    private static function createEventListenerService(string $serviceDir): void
+    {
+        $content = <<<'PHP'
+<?php
+
+/**
+ * ============================================
+ * EVENT LISTENER SERVICE
+ * ============================================
+ * 
+ * Service de gestion des event listeners
+ * Centralise l'enregistrement des listeners pour une meilleure organisation
+ */
+
+declare(strict_types=1);
+
+namespace App\Service;
+
+use JulienLinard\Core\Events\EventDispatcher;
+use JulienLinard\Core\Logging\SimpleLogger;
+
+class EventListenerService
+{
+    /**
+     * Enregistre tous les event listeners de l'application
+     * 
+     * @param EventDispatcher $events Dispatcher d'événements
+     * @param SimpleLogger $logger Logger pour les logs
+     */
+    public static function register(EventDispatcher $events, SimpleLogger $logger): void
+    {
+        // Listener pour les requêtes HTTP
+        $events->listen('request.started', function(array $payload) use ($logger) {
+            $request = $payload['request'];
+            $logger->info('Request started', [
+                'method' => $request->getMethod(),
+                'path' => $request->getPath(),
+                'query' => $request->getQueryParams(),
+                'ip' => $_SERVER['REMOTE_ADDR'] ?? 'unknown'
+            ]);
+        });
+        
+        // Listener pour les réponses HTTP
+        $events->listen('response.sent', function(array $payload) use ($logger) {
+            $response = $payload['response'];
+            $logger->info('Response sent', [
+                'status' => $response->getStatusCode()
+            ]);
+        });
+        
+        // Listener pour les exceptions
+        $events->listen('exception.thrown', function(array $payload) use ($logger) {
+            $exception = $payload['exception'];
+            $logger->error('Exception thrown', [
+                'message' => $exception->getMessage(),
+                'file' => $exception->getFile(),
+                'line' => $exception->getLine()
+            ]);
+        });
+    }
+}
+PHP;
+        
+        file_put_contents($serviceDir . '/EventListenerService.php', $content);
+    }
+    
+    private static function createBootstrapService(string $serviceDir): void
+    {
+        $content = <<<'PHP'
+<?php
+
+/**
+ * ============================================
+ * BOOTSTRAP SERVICE
+ * ============================================
+ * 
+ * Service de bootstrap de l'application
+ * Centralise la configuration et l'initialisation pour une meilleure organisation
+ */
+
+declare(strict_types=1);
+
+namespace App\Service;
+
+use JulienLinard\Core\Application;
+use JulienLinard\Core\ErrorHandler;
+use JulienLinard\Core\Logging\SimpleLogger;
+
+class BootstrapService
+{
+    /**
+     * Configure le mode debug et les paramètres PHP
+     * 
+     * @param Application $app Instance de l'application
+     * @return bool Mode debug activé ou non
+     */
+    public static function configureDebug(Application $app): bool
+    {
+        $debug = getenv('APP_DEBUG') === 'true' || getenv('APP_DEBUG') === '1';
+        
+        if (!defined('APP_DEBUG')) {
+            define('APP_DEBUG', $debug);
+        }
+        
+        $app->getConfig()->set('app.debug', $debug);
+        error_reporting($debug ? E_ALL : 0);
+        ini_set('display_errors', $debug ? '1' : '0');
+        
+        return $debug;
+    }
+    
+    /**
+     * Configure la sécurité des sessions
+     */
+    public static function configureSessionSecurity(): void
+    {
+        // cookie_httponly : Empêche l'accès au cookie via JavaScript (protection XSS)
+        ini_set('session.cookie_httponly', '1');
+        
+        // cookie_samesite : Empêche l'envoi du cookie lors de requêtes cross-site (protection CSRF)
+        ini_set('session.cookie_samesite', 'Strict');
+        
+        // use_strict_mode : Empêche la fixation de session (attaque de fixation de session)
+        ini_set('session.use_strict_mode', '1');
+        
+        // cookie_secure : Uniquement en production avec HTTPS
+        $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') 
+            || (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
+        ini_set('session.cookie_secure', $isHttps ? '1' : '0');
+    }
+    
+    /**
+     * Configure l'ErrorHandler avec logging
+     * 
+     * @param Application $app Instance de l'application
+     * @param bool $debug Mode debug
+     * @param string $viewsPath Chemin vers les vues
+     * @return SimpleLogger Logger configuré
+     */
+    public static function configureErrorHandler(Application $app, bool $debug, string $viewsPath): SimpleLogger
+    {
+        $logFile = dirname($viewsPath) . '/storage/logs/app.log';
+        $logDir = dirname($logFile);
+        
+        // Créer le répertoire de logs s'il n'existe pas
+        if (!is_dir($logDir)) {
+            if (!mkdir($logDir, 0755, true)) {
+                throw new \RuntimeException(
+                    "Impossible de créer le répertoire de logs '{$logDir}'. " .
+                    "Vérifiez les permissions du répertoire parent."
+                );
+            }
+        }
+        
+        // Vérifier que le répertoire est accessible en écriture
+        if (!is_writable($logDir)) {
+            // Essayer de corriger les permissions
+            @chmod($logDir, 0755);
+            if (!is_writable($logDir)) {
+                throw new \RuntimeException(
+                    "Le répertoire de logs '{$logDir}' n'est pas accessible en écriture. " .
+                    "Veuillez vérifier les permissions (chmod 755 recommandé)."
+                );
+            }
+        }
+        
+        $logger = new SimpleLogger($logFile);
+        $errorHandler = new \JulienLinard\Core\ErrorHandler($app, $logger, $debug, $viewsPath);
+        $app->setErrorHandler($errorHandler);
+        
+        return $logger;
+    }
+}
+PHP;
+        
+        file_put_contents($serviceDir . '/BootstrapService.php', $content);
+    }
+    
     private static function createConfigDatabase(string $wwwDir): void
     {
         $configDir = $wwwDir . '/config';
@@ -688,6 +959,7 @@ PHP;
         self::createHomeView($homeDir);
         self::createLocalDirectories($baseDir);
         self::createConfigDatabase($baseDir);
+        self::createBootstrapServices($baseDir);
         
         self::createPublicIndex($publicDir, $installDoctrine, $installAuth);
         
@@ -811,7 +1083,15 @@ PHP;
         
         // .env.example à la racine (pour Docker)
         $rootContent = <<<'ENV'
-# Configuration Docker
+# ============================================
+# CONFIGURATION DOCKER COMPOSE
+# ============================================
+# Ce fichier configure les containers Docker (ports EXTERNES, noms, etc.)
+# Utilisé par docker-compose.yml
+#
+# IMPORTANT : Les ports ici sont les ports EXPOSÉS sur l'hôte (ports externes)
+# Exemple : MARIADB_PORT=3306 signifie que le port 3306 de l'hôte est mappé au container
+#
 # Copiez ce fichier en .env et modifiez les valeurs selon vos besoins
 
 APACHE_CONTAINER=apache_app
@@ -830,10 +1110,23 @@ ENV;
         
         // .env.example dans www/ (pour l'application)
         $wwwContent = <<<'ENV'
-# Configuration Application
+# ============================================
+# CONFIGURATION APPLICATION PHP
+# ============================================
+# Ce fichier configure l'application PHP qui tourne DANS le container
+#
+# IMPORTANT : Les ports ici sont les ports INTERNES du réseau Docker
+# - MARIADB_CONTAINER : Nom du service Docker (pour la connexion interne)
+# - Le port MariaDB est toujours 3306 (port interne du container)
+# - Host = nom du service Docker (mariadb_app) pour la connexion interne
+#
 # Copiez ce fichier en .env et modifiez les valeurs selon vos besoins
 
+# ============================================
 # Configuration Base de données
+# ============================================
+# Ces variables sont utilisées par l'application PHP pour se connecter à MariaDB
+# depuis l'intérieur du réseau Docker
 MARIADB_CONTAINER=mariadb_app
 MYSQL_DATABASE=app_db
 MYSQL_USER=app_user
@@ -841,10 +1134,19 @@ MYSQL_PASSWORD=app_password
 PHP_ERROR_REPORTING=E_ALL
 PHP_DISPLAY_ERRORS=On
 
+# ============================================
 # Configuration Application
+# ============================================
+# APP_SECRET : Secret utilisé pour la sécurité (sessions, tokens CSRF, etc.)
 # Générez un secret sécurisé avec: php -r 'echo bin2hex(random_bytes(32)) . PHP_EOL;'
+# DOIT contenir au moins 32 caractères
 APP_SECRET=
+
+# APP_DEBUG : Mode debug (1 = activé, 0 = désactivé)
+# En production, mettre à 0 pour la sécurité
 APP_DEBUG=1
+
+# APP_LOCALE : Locale de l'application (fr, en, es)
 APP_LOCALE=fr
 ENV;
         
@@ -1113,11 +1415,12 @@ require_once __DIR__ . '/../vendor/autoload.php';
 
 use JulienLinard\Core\Application;
 use JulienLinard\Core\Middleware\CsrfMiddleware;
-use JulienLinard\Core\ErrorHandler;
-use JulienLinard\Core\Logging\SimpleLogger;
 use JulienLinard\Validator\Validator as PhpValidator;
 use JulienLinard\Core\Form\Validator as CoreValidator;
 use App\Controller\HomeController;
+use App\Service\EnvValidator;
+use App\Service\EventListenerService;
+use App\Service\BootstrapService;
 PHP;
 
         if ($hasDoctrine) {
@@ -1147,9 +1450,11 @@ $app = Application::create(dirname(__DIR__));
 try {
     $app->loadEnv();
 } catch (\Exception $e) {
-    die("❌ Erreur lors du chargement du fichier .env: " . $e->getMessage() . "\n" .
-        "   Veuillez créer un fichier .env dans le répertoire www/ avec les variables nécessaires.\n" .
-        "   Consultez .env.example pour un exemple.\n");
+    throw new \RuntimeException(
+        "Erreur lors du chargement du fichier .env: " . $e->getMessage() . "\n" .
+        "Veuillez créer un fichier .env dans le répertoire www/ avec les variables nécessaires.\n" .
+        "Consultez .env.example pour un exemple."
+    );
 }
 
 // ============================================
@@ -1179,74 +1484,32 @@ $app->setViewsPath(__DIR__ . '/../views');
 $app->setPartialsPath(__DIR__ . '/../views/_templates');
 
 // ============================================
-// ÉTAPE 5 : CONFIGURATION DU MODE DEBUG ET ERROR HANDLER
+// ÉTAPE 5 : VALIDATION DES VARIABLES D'ENVIRONNEMENT
+// ============================================
+// Valider toutes les variables d'environnement requises
+// CONCEPT : Validation centralisée pour une meilleure maintenabilité
+EnvValidator::validate();
+
+// ============================================
+// ÉTAPE 6 : CONFIGURATION DU MODE DEBUG ET ERROR HANDLER
 // ============================================
 // Activer le mode debug selon la variable d'environnement
-// CONCEPT PÉDAGOGIQUE : Environnements (dev/prod)
+// CONCEPT : Environnements (dev/prod)
 // En développement : afficher les erreurs pour déboguer
 // En production : masquer les erreurs pour la sécurité
-$debug = getenv('APP_DEBUG') === 'true' || getenv('APP_DEBUG') === '1';
-if (!defined('APP_DEBUG')) {
-    define('APP_DEBUG', $debug);
-}
-$app->getConfig()->set('app.debug', $debug);
-error_reporting($debug ? E_ALL : 0);
-ini_set('display_errors', $debug ? '1' : '0');
-
-// Valider APP_SECRET (doit être défini et d'au moins 32 caractères pour la sécurité)
-$appSecret = getenv('APP_SECRET');
-if (empty($appSecret)) {
-    throw new \RuntimeException(
-        "APP_SECRET n'est pas défini dans votre fichier .env. " .
-        "Ce secret est utilisé pour la sécurité (sessions, tokens CSRF, etc.). " .
-        "Générez-en un avec: php -r 'echo bin2hex(random_bytes(32)) . PHP_EOL;'"
-    );
-}
-if (strlen($appSecret) < 32) {
-    throw new \RuntimeException(
-        "APP_SECRET doit contenir au moins 32 caractères pour la sécurité. " .
-        "Générez-en un nouveau avec: php -r 'echo bin2hex(random_bytes(32)) . PHP_EOL;'"
-    );
-}
-
-// Configurer l'ErrorHandler avec logging
-// CONCEPT : Gestion centralisée des erreurs avec logging
-$logFile = __DIR__ . '/../storage/logs/app.log';
-// Créer le répertoire de logs s'il n'existe pas
-$logDir = dirname($logFile);
-if (!is_dir($logDir)) {
-    mkdir($logDir, 0755, true);
-}
-// Vérifier que le répertoire est accessible en écriture
-if (!is_writable($logDir)) {
-    throw new \RuntimeException(
-        "Le répertoire de logs '{$logDir}' n'est pas accessible en écriture. " .
-        "Veuillez vérifier les permissions (chmod 755 recommandé)."
-    );
-}
-$logger = new SimpleLogger($logFile);
-$errorHandler = new ErrorHandler($app, $logger, $debug, __DIR__ . '/../views');
-$app->setErrorHandler($errorHandler);
+$debug = BootstrapService::configureDebug($app);
+$viewsPath = __DIR__ . '/../views';
+$logger = BootstrapService::configureErrorHandler($app, $debug, $viewsPath);
 
 // ============================================
-// CONFIGURATION DE SÉCURITÉ DES SESSIONS
+// ÉTAPE 7 : CONFIGURATION DE SÉCURITÉ DES SESSIONS
 // ============================================
 // Ces paramètres sécurisent les cookies de session PHP
-// 
-// cookie_httponly : Empêche l'accès au cookie via JavaScript (protection XSS)
-// cookie_samesite : Empêche l'envoi du cookie lors de requêtes cross-site (protection CSRF)
-// use_strict_mode : Empêche la fixation de session (attaque de fixation de session)
-//
-// Note pédagogique : Ces configurations sont essentielles pour sécuriser les sessions
-// et doivent être expliquées aux étudiants dans le cours sur la sécurité web.
-ini_set('session.cookie_httponly', '1');
-ini_set('session.cookie_samesite', 'Strict');
-ini_set('session.use_strict_mode', '1');
-// Note : cookie_secure = '1' uniquement en production avec HTTPS
-// En développement local sans HTTPS, laisser à '0' ou ne pas définir
+// CONCEPT : Sécurité des sessions (XSS, CSRF, fixation de session)
+BootstrapService::configureSessionSecurity();
 
 // ============================================
-// ÉTAPE 6 : CONFIGURATION DU CONTAINER DI
+// ÉTAPE 9 : CONFIGURATION DU CONTAINER DI
 // ============================================
 // Récupérer le container d'injection de dépendances
 // CONCEPT PÉDAGOGIQUE : Dependency Injection (DI) Container
@@ -1299,17 +1562,8 @@ PHP;
 
 // Enregistrer Validator (php-validator) comme singleton avec la locale de l'application
 // CONCEPT : Configuration centralisée de la locale pour les messages d'erreur multilingues
-// La locale peut être définie via la variable d'environnement APP_LOCALE (défaut: 'fr')
+// La locale est validée par EnvValidator (déjà appelé plus haut)
 $appLocale = getenv('APP_LOCALE') ?: 'fr';
-// Valider que la locale est supportée (fr, en, es)
-$supportedLocales = ['fr', 'en', 'es'];
-if (!in_array($appLocale, $supportedLocales, true)) {
-    throw new \RuntimeException(
-        "Locale non supportée: '{$appLocale}'. " .
-        "Locales supportées: " . implode(', ', $supportedLocales) . ". " .
-        "Définissez APP_LOCALE dans votre fichier .env."
-    );
-}
 $container->singleton(PhpValidator::class, function() use ($appLocale) {
     return new PhpValidator($appLocale);
 });
@@ -1334,7 +1588,7 @@ if (class_exists(\App\Service\FileUploadService::class)) {
 }
 
 // ============================================
-// ÉTAPE 7 : CONFIGURATION DU ROUTER ET MIDDLEWARES
+// ÉTAPE 10 : CONFIGURATION DU ROUTER ET MIDDLEWARES
 // ============================================
 // Récupérer le router qui gère les routes de l'application
 // CONCEPT PÉDAGOGIQUE : Router (Routeur)
@@ -1352,41 +1606,14 @@ $router->addMiddleware(new CsrfMiddleware());
 // ============================================
 // ÉTAPE 8 : CONFIGURATION DU SYSTÈME D'ÉVÉNEMENTS
 // ============================================
-// Récupérer le dispatcher d'événements
+// Récupérer le dispatcher d'événements et enregistrer les listeners
 // CONCEPT : EventDispatcher pour l'extensibilité
 // Permet d'écouter les événements de l'application (request.started, response.sent, etc.)
 $events = $app->getEvents();
-
-// Écouter les événements pour le logging
-// CONCEPT : Event Listeners - écouter les événements de l'application
-$events->listen('request.started', function(array $payload) use ($logger) {
-    $request = $payload['request'];
-    $logger->info('Request started', [
-        'method' => $request->getMethod(),
-        'path' => $request->getPath(),
-        'query' => $request->getQueryParams(),
-        'ip' => $_SERVER['REMOTE_ADDR'] ?? 'unknown'
-    ]);
-});
-
-$events->listen('response.sent', function(array $payload) use ($logger) {
-    $response = $payload['response'];
-    $logger->info('Response sent', [
-        'status' => $response->getStatusCode()
-    ]);
-});
-
-$events->listen('exception.thrown', function(array $payload) use ($logger) {
-    $exception = $payload['exception'];
-    $logger->error('Exception thrown', [
-        'message' => $exception->getMessage(),
-        'file' => $exception->getFile(),
-        'line' => $exception->getLine()
-    ]);
-});
+EventListenerService::register($events, $logger);
 
 // ============================================
-// ÉTAPE 9 : ENREGISTREMENT DES ROUTES
+// ÉTAPE 11 : ENREGISTREMENT DES ROUTES
 // ============================================
 // Enregistrer toutes les routes définies dans les contrôleurs
 // CONCEPT PÉDAGOGIQUE : Route Attributes (PHP 8)
