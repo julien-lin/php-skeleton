@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-require_once __DIR__ . '/../vendor/autoload.php';
+require_once dirname(__DIR__) . '/vendor/autoload.php';
 
 use JulienLinard\Core\Application;
 use JulienLinard\Core\Controller\Controller;
 use JulienLinard\Router\Attributes\Route;
 use JulienLinard\Router\Response;
 
-$app = Application::create(__DIR__ . '/..');
-$app->setViewsPath(__DIR__ . '/../templates');
+$app = Application::create(dirname(__DIR__));
+$app->setViewsPath(dirname(__DIR__) . '/templates');
 
 $router = $app->getRouter();
 
