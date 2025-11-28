@@ -171,7 +171,7 @@ class Installer
         $possiblePaths = [
             'composer',
             'composer.phar',
-            __DIR__ . '/../../composer.phar',
+            dirname(__DIR__, 2) . '/composer.phar',
         ];
         
         foreach ($possiblePaths as $path) {
@@ -1358,7 +1358,7 @@ PHP;
 
 declare(strict_types=1);
 
-require_once __DIR__ . '/../vendor/autoload.php';
+require_once dirname(__DIR__) . '/vendor/autoload.php';
 
 use JulienLinard\Core\Application;
 use JulienLinard\Core\Middleware\CsrfMiddleware;
@@ -1428,8 +1428,8 @@ PHP;
 // ============================================
 // Définir les chemins des vues (templates)
 // CONCEPT : Configuration des chemins pour le moteur de templates
-$app->setViewsPath(__DIR__ . '/../views');
-$app->setPartialsPath(__DIR__ . '/../views/_templates');
+$app->setViewsPath(dirname(__DIR__) . '/views');
+$app->setPartialsPath(dirname(__DIR__) . '/views/_templates');
 
 // ============================================
 // ÉTAPE 5 : VALIDATION DES VARIABLES D'ENVIRONNEMENT
@@ -1446,7 +1446,7 @@ EnvValidator::validate();
 // En développement : afficher les erreurs pour déboguer
 // En production : masquer les erreurs pour la sécurité
 $debug = BootstrapService::configureDebug($app);
-$viewsPath = __DIR__ . '/../views';
+$viewsPath = dirname(__DIR__) . '/views';
 $logger = BootstrapService::configureErrorHandler($app, $debug, $viewsPath);
 
 // ============================================
