@@ -362,6 +362,7 @@ class Installer
     
     private static function createWwwDirectories(string $wwwDir): void
     {
+        $publicDir = $wwwDir . '/public';
         $directories = [
             $wwwDir . '/src/Controller',
             $wwwDir . '/src/Entity',
@@ -370,6 +371,7 @@ class Installer
             $wwwDir . '/src/Service',
             $wwwDir . '/storage/logs',
             $wwwDir . '/migrations',
+            $publicDir . '/uploads',
         ];
         
         foreach ($directories as $dir) {
@@ -385,6 +387,10 @@ class Installer
         file_put_contents($wwwDir . '/src/Service/.gitkeep', '');
         file_put_contents($wwwDir . '/storage/logs/.gitkeep', '');
         file_put_contents($wwwDir . '/migrations/.gitkeep', '');
+        file_put_contents($publicDir . '/uploads/.gitkeep', '');
+        
+        // Fixer les permissions pour Linux (après création de tous les dossiers)
+        self::fixPermissions($wwwDir, true);
     }
     
     private static function createBootstrapServices(string $baseDir): void
@@ -802,6 +808,8 @@ PHP;
 /storage/logs/*.log
 *.log
 .DS_Store
+/public/uploads/*
+!/public/uploads/.gitkeep
 GITIGNORE;
         
         file_put_contents($wwwDir . '/.gitignore', $content);
@@ -889,6 +897,7 @@ PHP;
     
     private static function createLocalDirectories(string $baseDir): void
     {
+        $publicDir = $baseDir . '/public';
         $directories = [
             $baseDir . '/src/Controller',
             $baseDir . '/src/Entity',
@@ -897,6 +906,7 @@ PHP;
             $baseDir . '/src/Service',
             $baseDir . '/storage/logs',
             $baseDir . '/migrations',
+            $publicDir . '/uploads',
         ];
         
         foreach ($directories as $dir) {
@@ -912,6 +922,10 @@ PHP;
         file_put_contents($baseDir . '/src/Service/.gitkeep', '');
         file_put_contents($baseDir . '/storage/logs/.gitkeep', '');
         file_put_contents($baseDir . '/migrations/.gitkeep', '');
+        file_put_contents($publicDir . '/uploads/.gitkeep', '');
+        
+        // Fixer les permissions pour Linux (après création de tous les dossiers)
+        self::fixPermissions($baseDir, false);
     }
     
     private static function configureEnv(): void
@@ -1696,6 +1710,180 @@ IGNORE;
         file_put_contents($baseDir . '/.dockerignore', $content);
     }
     
+    /**
+     * Fixe les permissions des dossiers critiques pour Linux
+     * 
+     * @param string $baseDir Répertoire de base (www/ pour Docker, racine pour local)
+     * @param bool $isDocker True si installation Docker, false si local
+     */
+    private static function fixPermissions(string $baseDir, bool $isDocker): void
+    {
+        // Détecter si on est sous Linux
+        $isLinux = PHP_OS_FAMILY === 'Linux';
+        
+        if (!$isLinux) {
+            // Sous macOS/Windows, les permissions sont généralement OK
+            return;
+        }
+        
+        $publicDir = $isDocker ? $baseDir . '/public' : $baseDir . '/public';
+        $storageLogsDir = $baseDir . '/storage/logs';
+        $uploadsDir = $publicDir . '/uploads';
+        
+        // Dossiers critiques qui doivent être accessibles en écriture
+        $writableDirs = [
+            $storageLogsDir,
+            $uploadsDir,
+        ];
+        
+        foreach ($writableDirs as $dir) {
+            if (is_dir($dir)) {
+                // Fixer les permissions à 755 (rwxr-xr-x)
+                @chmod($dir, 0755);
+                
+                // Si on est dans Docker, essayer de changer le propriétaire en www-data
+                // (cela nécessite sudo, donc on essaie seulement)
+                if ($isDocker) {
+                    // Dans Docker, le serveur web tourne avec www-data
+                    // On essaie de changer le propriétaire, mais cela peut échouer sans sudo
+                    @chown($dir, 'www-data');
+                    @chgrp($dir, 'www-data');
+                }
+            }
+        }
+        
+        // Créer le script fix-permissions.sh pour pouvoir refixer les permissions plus tard
+        self::createFixPermissionsScript($baseDir, $isDocker);
+    }
+    
+    /**
+     * Crée un script shell pour fixer les permissions sous Linux
+     * 
+     * @param string $baseDir Répertoire de base
+     * @param bool $isDocker True si installation Docker
+     */
+    private static function createFixPermissionsScript(string $baseDir, bool $isDocker): void
+    {
+        $scriptPath = $baseDir . '/fix-permissions.sh';
+        
+        if ($isDocker) {
+            // Script pour Docker
+            $content = <<<'BASH'
+#!/bin/bash
+
+# ============================================
+# SCRIPT DE CORRECTION DES PERMISSIONS (Docker)
+# ============================================
+# 
+# Ce script fixe les permissions des dossiers critiques
+# pour que l'application fonctionne correctement sous Linux.
+#
+# Usage: ./fix-permissions.sh
+# Ou depuis le container: docker compose exec apache_app bash fix-permissions.sh
+
+set -e
+
+echo "🔧 Correction des permissions..."
+
+# Dossiers qui doivent être accessibles en écriture
+STORAGE_LOGS="storage/logs"
+PUBLIC_UPLOADS="public/uploads"
+
+# Créer les dossiers s'ils n'existent pas
+mkdir -p "$STORAGE_LOGS"
+mkdir -p "$PUBLIC_UPLOADS"
+
+# Fixer les permissions (755 = rwxr-xr-x)
+chmod -R 755 "$STORAGE_LOGS"
+chmod -R 755 "$PUBLIC_UPLOADS"
+
+# Si on est dans le container Docker, changer le propriétaire en www-data
+if [ -n "$DOCKER_CONTAINER" ] || [ -f /.dockerenv ]; then
+    echo "🐳 Détection Docker - Changement du propriétaire en www-data..."
+    chown -R www-data:www-data "$STORAGE_LOGS" 2>/dev/null || echo "⚠️  Impossible de changer le propriétaire (nécessite sudo)"
+    chown -R www-data:www-data "$PUBLIC_UPLOADS" 2>/dev/null || echo "⚠️  Impossible de changer le propriétaire (nécessite sudo)"
+else
+    # Si on est sur l'hôte Linux, utiliser l'utilisateur actuel
+    CURRENT_USER=$(whoami)
+    echo "👤 Utilisation de l'utilisateur actuel: $CURRENT_USER"
+    chown -R "$CURRENT_USER:$CURRENT_USER" "$STORAGE_LOGS" 2>/dev/null || echo "⚠️  Impossible de changer le propriétaire (nécessite sudo)"
+    chown -R "$CURRENT_USER:$CURRENT_USER" "$PUBLIC_UPLOADS" 2>/dev/null || echo "⚠️  Impossible de changer le propriétaire (nécessite sudo)"
+fi
+
+echo "✅ Permissions corrigées avec succès!"
+echo ""
+echo "📝 Dossiers corrigés:"
+echo "   - $STORAGE_LOGS (755)"
+echo "   - $PUBLIC_UPLOADS (755)"
+BASH;
+        } else {
+            // Script pour installation locale
+            $content = <<<'BASH'
+#!/bin/bash
+
+# ============================================
+# SCRIPT DE CORRECTION DES PERMISSIONS (Local)
+# ============================================
+# 
+# Ce script fixe les permissions des dossiers critiques
+# pour que l'application fonctionne correctement sous Linux.
+#
+# Usage: ./fix-permissions.sh
+# Ou avec sudo si nécessaire: sudo ./fix-permissions.sh
+
+set -e
+
+echo "🔧 Correction des permissions..."
+
+# Dossiers qui doivent être accessibles en écriture
+STORAGE_LOGS="storage/logs"
+PUBLIC_UPLOADS="public/uploads"
+
+# Créer les dossiers s'ils n'existent pas
+mkdir -p "$STORAGE_LOGS"
+mkdir -p "$PUBLIC_UPLOADS"
+
+# Fixer les permissions (755 = rwxr-xr-x)
+chmod -R 755 "$STORAGE_LOGS"
+chmod -R 755 "$PUBLIC_UPLOADS"
+
+# Détecter l'utilisateur du serveur web
+if command -v apache2 >/dev/null 2>&1 || command -v httpd >/dev/null 2>&1; then
+    # Apache détecté
+    WEB_USER="www-data"
+    if id "$WEB_USER" &>/dev/null; then
+        echo "🌐 Détection Apache - Changement du propriétaire en $WEB_USER..."
+        sudo chown -R "$WEB_USER:$WEB_USER" "$STORAGE_LOGS" 2>/dev/null || {
+            echo "⚠️  Impossible de changer le propriétaire (nécessite sudo)"
+            echo "   Exécutez: sudo ./fix-permissions.sh"
+        }
+        sudo chown -R "$WEB_USER:$WEB_USER" "$PUBLIC_UPLOADS" 2>/dev/null || {
+            echo "⚠️  Impossible de changer le propriétaire (nécessite sudo)"
+            echo "   Exécutez: sudo ./fix-permissions.sh"
+        }
+    fi
+else
+    # Utiliser l'utilisateur actuel
+    CURRENT_USER=$(whoami)
+    echo "👤 Utilisation de l'utilisateur actuel: $CURRENT_USER"
+    chown -R "$CURRENT_USER:$CURRENT_USER" "$STORAGE_LOGS" 2>/dev/null || echo "⚠️  Impossible de changer le propriétaire"
+    chown -R "$CURRENT_USER:$CURRENT_USER" "$PUBLIC_UPLOADS" 2>/dev/null || echo "⚠️  Impossible de changer le propriétaire"
+fi
+
+echo "✅ Permissions corrigées avec succès!"
+echo ""
+echo "📝 Dossiers corrigés:"
+echo "   - $STORAGE_LOGS (755)"
+echo "   - $PUBLIC_UPLOADS (755)"
+BASH;
+        }
+        
+        file_put_contents($scriptPath, $content);
+        
+        // Rendre le script exécutable
+        @chmod($scriptPath, 0755);
+    }
+    
     private static function displayCompletion(bool $useDocker): void
     {
         echo "\n";
@@ -1709,13 +1897,15 @@ IGNORE;
             echo "   1. Chargez les aliases: source aliases.sh\n";
             echo "   2. Démarrez Docker: docker compose up -d\n";
             echo "   3. Installez les dépendances: cd www && composer install\n";
-            echo "   4. Visitez http://localhost (ou le port configuré)\n";
-            echo "   5. Utilisez 'ccomposer' pour les commandes Composer dans Docker\n";
+            echo "   4. (Linux) Fixez les permissions: cd www && ./fix-permissions.sh\n";
+            echo "   5. Visitez http://localhost (ou le port configuré)\n";
+            echo "   6. Utilisez 'ccomposer' pour les commandes Composer dans Docker\n";
         } else {
             echo "   1. Configurez votre fichier .env si nécessaire\n";
             echo "   2. Installez les dépendances: composer install\n";
-            echo "   3. Lancez votre serveur: php -S localhost:8000 -t public\n";
-            echo "   4. Visitez http://localhost:8000\n";
+            echo "   3. (Linux) Fixez les permissions: ./fix-permissions.sh\n";
+            echo "   4. Lancez votre serveur: php -S localhost:8000 -t public\n";
+            echo "   5. Visitez http://localhost:8000\n";
         }
         
         echo "\n";
