@@ -770,7 +770,7 @@ PHP;
         ];
         
         if ($hasDoctrine) {
-            $require['julienlinard/doctrine-php'] = '^1.0';
+            $require['julienlinard/doctrine-php'] = '^1.1';
         }
         
         if ($hasAuth) {
@@ -792,6 +792,18 @@ PHP;
                 ]
             ]
         ];
+        
+        // Ajouter les scripts Composer pour doctrine-php si installé
+        if ($hasDoctrine) {
+            $json['scripts'] = [
+                'doctrine:migrate' => 'vendor/bin/doctrine-migrate migrate',
+                'doctrine:generate' => 'vendor/bin/doctrine-migrate generate',
+                'doctrine:rollback' => 'vendor/bin/doctrine-migrate rollback',
+                'doctrine:create' => 'vendor/bin/doctrine-migrate create',
+                'doctrine:drop' => 'vendor/bin/doctrine-migrate drop',
+                'doctrine:status' => 'vendor/bin/doctrine-migrate status'
+            ];
+        }
         
         $content = json_encode($json, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
         file_put_contents($targetComposer, $content);
