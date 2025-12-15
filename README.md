@@ -1,4 +1,4 @@
-# PHP Skeleton v1.5.3
+# PHP Skeleton v1.5.8
 
 [🇫🇷 Read in French](README.fr.md) | [🇬🇧 Read in English](README.md)
 
@@ -14,11 +14,12 @@ A minimal PHP project skeleton using my PHP libraries (router, core, auth, doctr
 
 - **🚀 Production-Ready** - Fully configured and optimized out of the box
 - **🏗️ Clean Architecture** - Well-organized structure with service layer
-- **🔒 Security First** - Secure configuration, CSRF protection, session security
+- **🔒 Security First** - Mass assignment protection, open redirect prevention, secure sessions, CSRF protection
 - **📦 Auto-Generated Services** - EnvValidator, BootstrapService, EventListenerService
 - **🌐 Multilingual Support** - Validation messages in French, English, Spanish
 - **🐳 Docker Ready** - Complete Docker setup with Apache and MariaDB
 - **⚡ Zero Configuration** - Works immediately after installation
+- **⚡ Performance Optimized** - View caching, container scoped cache, rate limiting
 
 ## 🚀 Installation
 
@@ -352,11 +353,24 @@ MYSQL_PASSWORD=app_password
 
 ## 🔒 Security Features
 
+- **Mass Assignment Protection** - Models protected with `$fillable`/`$guarded` properties
+- **Open Redirect Prevention** - URL validation to prevent redirect attacks
 - **CSRF Protection** - Automatic CSRF token generation and validation
-- **Session Security** - HttpOnly, SameSite, and secure cookies
+- **Session Security** - HttpOnly, Secure, SameSite cookies with automatic ID regeneration (every 15 min)
+- **Rate Limiting** - Built-in middleware to prevent brute force attacks
+- **Security Headers** - CSP, HSTS, X-Frame-Options, and more
+- **Sensitive Data Redaction** - Automatic masking of passwords/tokens in logs
 - **Environment Validation** - Automatic validation of required environment variables
 - **Secure Database Config** - No hardcoded credentials, strict validation
 - **Error Handling** - Production-safe error handling with logging
+
+## ⚡ Performance Features
+
+- **View Caching** - File-based cache for rendered templates with automatic invalidation
+- **Container Scoped Cache** - 50-70% faster dependency resolution
+- **Rate Limit Memory Cache** - 5-10x faster than file-only storage
+- **Log Rotation** - Automatic compression and cleanup to save disk space
+- **Response Compression** - Gzip middleware for bandwidth optimization
 
 ## 📝 Requirements
 
@@ -364,7 +378,17 @@ MYSQL_PASSWORD=app_password
 - Composer
 - Docker (optional, for Docker setup)
 
-## 🆕 What's New in v1.5.3
+## 🆕 What's New in v1.5.8
+
+- ✅ **Updated to core-php ^1.4** - Includes all security and performance improvements
+- ✅ Mass assignment protection in models
+- ✅ Open redirect prevention in controllers
+- ✅ Enhanced session security with automatic ID regeneration
+- ✅ Performance optimizations (view cache, container cache, rate limiting)
+- ✅ Sensitive data redaction in logs
+- ✅ Improved log rotation with compression
+
+### Previous Updates (v1.5.3)
 
 - ✅ Automatic autoloader regeneration after installation
 - ✅ Clean architecture with service layer
