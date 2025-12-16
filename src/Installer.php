@@ -101,7 +101,14 @@ class Installer
         $output = [];
         $returnCode = 0;
         
-        exec($command . ' 2>&1', $output, $returnCode);
+        // ✅ PHASE 1.1: Utiliser safeExec au lieu de exec()
+        try {
+            self::safeExec($command, $output, $returnCode);
+        } catch (\RuntimeException $e) {
+            echo "❌ Erreur de sécurité: " . $e->getMessage() . "\n";
+            echo "   Veuillez installer {$package} manuellement: composer require {$package}\n";
+            return;
+        }
         
         if ($returnCode === 0) {
             echo "✅ {$package} installé avec succès.\n";
@@ -133,7 +140,14 @@ class Installer
         $output = [];
         $returnCode = 0;
         
-        exec($command . ' 2>&1', $output, $returnCode);
+        // ✅ PHASE 1.1: Utiliser safeExec au lieu de exec()
+        try {
+            self::safeExec($command, $output, $returnCode);
+        } catch (\RuntimeException $e) {
+            echo "❌ Erreur de sécurité: " . $e->getMessage() . "\n";
+            echo "   Installation à faire manuellement: cd www && composer require {$package}\n";
+            return;
+        }
         
         if ($returnCode === 0) {
             echo "✅ {$package} installé avec succès dans www/.\n";
@@ -156,7 +170,17 @@ class Installer
         }
         
         $command = 'cd ' . escapeshellarg($targetDir) . ' && ' . escapeshellarg($composerPath) . ' dump-autoload --no-interaction 2>&1';
-        exec($command, $output, $returnCode);
+        $output = [];
+        $returnCode = 0;
+        
+        // ✅ PHASE 1.1: Utiliser safeExec au lieu de exec()
+        try {
+            self::safeExec($command, $output, $returnCode);
+        } catch (\RuntimeException $e) {
+            echo "❌ Erreur de sécurité: " . $e->getMessage() . "\n";
+            echo "   Régénérez manuellement: cd " . basename($targetDir) . " && composer dump-autoload\n";
+            return;
+        }
         
         if ($returnCode === 0) {
             echo "✅ Autoloader régénéré avec succès.\n";
@@ -180,20 +204,151 @@ class Installer
             }
         }
         
-        $whichComposer = trim((string) shell_exec('which composer 2>/dev/null'));
-        if (!empty($whichComposer) && self::isExecutable($whichComposer)) {
-            return $whichComposer;
+        // ✅ PHASE 1.1: Utiliser safeShellExec au lieu de shell_exec()
+        // Note: safeShellExec rejette les redirections (2>/dev/null), donc on les enlève
+        try {
+            $whichComposer = self::safeShellExec('which composer');
+            if (!empty($whichComposer) && self::isExecutable($whichComposer)) {
+                return $whichComposer;
+            }
+        } catch (\RuntimeException $e) {
+            // Ignorer les erreurs de sécurité pour which (fallback silencieux)
         }
         
         return null;
     }
     
+    /**
+     * Exécute une commande de manière sécurisée
+     * 
+     * ✅ PHASE 1.1: Sécurisation de l'utilisation de exec()
+     * 
+     * @param string $command Commande à exécuter
+     * @param array &$output Sortie de la commande
+     * @param int &$returnCode Code de retour
+     * @return bool True si la commande a réussi
+     * @throws \RuntimeException Si la commande n'est pas autorisée
+     */
+    private static function safeExec(string $command, array &$output, int &$returnCode): bool
+    {
+        // Whitelist de commandes autorisées
+        $allowedCommands = ['composer', 'which'];
+        
+        // Extraire la commande de base (premier mot)
+        $commandParts = preg_split('/\s+/', trim($command), 2);
+        $baseCommand = $commandParts[0] ?? '';
+        
+        // Pour les commandes avec "cd", extraire la commande après "&&"
+        if (str_starts_with($command, 'cd ')) {
+            $parts = explode(' && ', $command, 2);
+            if (isset($parts[1])) {
+                $actualCommand = trim($parts[1]);
+                $commandParts = preg_split('/\s+/', $actualCommand, 2);
+                $baseCommand = $commandParts[0] ?? '';
+            }
+        }
+        
+        // Vérifier que la commande de base est autorisée
+        if (!in_array($baseCommand, $allowedCommands, true)) {
+            throw new \RuntimeException("Commande non autorisée: {$baseCommand}");
+        }
+        
+        // Validation des chemins (protection contre path traversal)
+        // Séparer la commande en parties, en tenant compte de && pour les commandes avec cd
+        $parts = explode(' && ', $command);
+        foreach ($parts as $part) {
+            $allParts = preg_split('/\s+/', trim($part));
+            foreach ($allParts as $partItem) {
+                $cleanPart = trim($partItem, '\'"');
+                
+                // Ignorer && qui est autorisé dans le contexte de cd
+                if ($cleanPart === '&&') {
+                    continue;
+                }
+                
+                // Rejeter les chemins avec ..
+                if (str_contains($cleanPart, '..')) {
+                    throw new \RuntimeException("Chemin non autorisé (path traversal détecté): {$cleanPart}");
+                }
+                
+                // Rejeter les chemins système sensibles
+                $forbiddenPaths = ['/etc', '/bin', '/usr/bin', '/sbin', '/usr/sbin', '/var', '/sys', '/proc'];
+                foreach ($forbiddenPaths as $forbidden) {
+                    if (str_starts_with($cleanPart, $forbidden) && $cleanPart !== $forbidden) {
+                        throw new \RuntimeException("Chemin système non autorisé: {$cleanPart}");
+                    }
+                }
+                
+                // Rejeter les caractères dangereux (mais autoriser && dans le contexte de cd)
+                if (preg_match('/[;&|`$<>]/', $cleanPart) && $cleanPart !== '&&') {
+                    throw new \RuntimeException("Caractères dangereux détectés dans: {$cleanPart}");
+                }
+            }
+        }
+        
+        // Exécuter la commande
+        $result = exec($command . ' 2>&1', $output, $returnCode);
+        
+        return $result !== false;
+    }
+    
+    /**
+     * Exécute une commande shell_exec de manière sécurisée
+     * 
+     * ✅ PHASE 1.1: Sécurisation de l'utilisation de shell_exec()
+     * 
+     * @param string $command Commande à exécuter
+     * @return string|null Sortie de la commande ou null en cas d'erreur
+     * @throws \RuntimeException Si la commande n'est pas autorisée
+     */
+    private static function safeShellExec(string $command): ?string
+    {
+        // Whitelist de commandes autorisées
+        $allowedCommands = ['which'];
+        
+        // Extraire la commande de base
+        $commandParts = preg_split('/\s+/', trim($command), 2);
+        $baseCommand = $commandParts[0] ?? '';
+        
+        // Vérifier que la commande de base est autorisée
+        if (!in_array($baseCommand, $allowedCommands, true)) {
+            throw new \RuntimeException("Commande non autorisée: {$baseCommand}");
+        }
+        
+        // Validation des arguments
+        if (isset($commandParts[1])) {
+            $arg = trim($commandParts[1], '\'"');
+            
+            // Rejeter les chemins avec ..
+            if (str_contains($arg, '..')) {
+                throw new \RuntimeException("Chemin non autorisé (path traversal détecté): {$arg}");
+            }
+            
+            // Rejeter les caractères dangereux
+            if (preg_match('/[;&|`$<>]/', $arg)) {
+                throw new \RuntimeException("Caractères dangereux détectés dans: {$arg}");
+            }
+        }
+        
+        // Exécuter la commande
+        $result = shell_exec($command);
+        
+        return $result !== null ? trim((string)$result) : null;
+    }
+    
     private static function isExecutable(string $path): bool
     {
         if ($path === 'composer' || $path === 'composer.phar') {
-            $which = trim((string) shell_exec('which ' . escapeshellarg($path) . ' 2>/dev/null'));
-            if (!empty($which)) {
-                return is_executable($which);
+            // ✅ PHASE 1.1: Utiliser safeShellExec au lieu de shell_exec
+            // Note: safeShellExec rejette les redirections (2>/dev/null), donc on les enlève
+            try {
+                $which = self::safeShellExec('which ' . escapeshellarg($path));
+                if (!empty($which)) {
+                    return is_executable($which);
+                }
+            } catch (\RuntimeException $e) {
+                // Si safeShellExec rejette la commande, on retourne false
+                return false;
             }
             return false;
         }
@@ -289,7 +444,13 @@ class Installer
             'LICENSE',
             'README.md',
             'README.fr.md',
-            'composer.json'  // Le composer.json du skeleton source, pas celui généré
+            'composer.json',  // Le composer.json du skeleton source, pas celui généré
+            // ✅ PHASE 2.1: Exclure les fichiers de tests du skeleton généré
+            'tests',
+            'phpunit.xml',
+            '.phpunit.cache',
+            'coverage',
+            'CHANGELOG.md'
         ];
         
         foreach ($filesToRemove as $item) {

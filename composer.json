@@ -29,9 +29,17 @@
         "julienlinard/core-php": "^1.0",
         "julienlinard/php-router": "^1.0"
     },
+    "require-dev": {
+        "phpunit/phpunit": "^11.5"
+    },
     "autoload": {
         "psr-4": {
             "Julien\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Julien\\Tests\\": "tests/"
         }
     },
     "scripts": {
@@ -41,6 +49,5 @@
     },
     "minimum-stability": "stable",
     "prefer-stable": true,
-    "version": "1.5.7"
+    "version": "1.5.10"
 }
-
