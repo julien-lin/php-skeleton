@@ -1,4 +1,4 @@
-# PHP Skeleton v1.5.3
+# PHP Skeleton v1.5.8
 
 [🇬🇧 Lire en anglais](README.md) | [🇫🇷 Lire en français](README.fr.md)
 
@@ -14,11 +14,12 @@ Un skeleton de projet PHP minimal utilisant mes libraries PHP (router, core, aut
 
 - **🚀 Prêt pour la production** - Entièrement configuré et optimisé dès l'installation
 - **🏗️ Architecture propre** - Structure bien organisée avec couche de services
-- **🔒 Sécurité en priorité** - Configuration sécurisée, protection CSRF, sécurité des sessions
+- **🔒 Sécurité en priorité** - Protection mass assignment, prévention open redirect, sessions sécurisées, protection CSRF
 - **📦 Services auto-générés** - EnvValidator, BootstrapService, EventListenerService
 - **🌐 Support multilingue** - Messages de validation en français, anglais, espagnol
 - **🐳 Prêt pour Docker** - Configuration Docker complète avec Apache et MariaDB
 - **⚡ Zéro configuration** - Fonctionne immédiatement après l'installation
+- **⚡ Optimisé pour la performance** - Cache des vues, cache scoped du container, rate limiting
 
 ## 🚀 Installation
 
