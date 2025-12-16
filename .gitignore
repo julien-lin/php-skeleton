@@ -13,4 +13,6 @@
 db/*.sql
 db/*.dump
 .docker/
+.phpunit.cache/
+coverage/
 
