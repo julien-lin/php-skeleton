@@ -473,6 +473,18 @@ class Installer
         if (file_exists($installerPath)) {
             unlink($installerPath);
         }
+        
+        // ✅ PHASE 2.1: Supprimer aussi le dossier tests s'il a été copié par erreur
+        $testsPath = $wwwDir . '/tests';
+        if (is_dir($testsPath)) {
+            self::removeDirectory($testsPath);
+        }
+        
+        // Supprimer aussi phpunit.xml s'il a été copié
+        $phpunitPath = $wwwDir . '/phpunit.xml';
+        if (file_exists($phpunitPath)) {
+            unlink($phpunitPath);
+        }
     }
     
     private static function moveDirectory(string $source, string $target): void

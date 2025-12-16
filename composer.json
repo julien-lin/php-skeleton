@@ -49,10 +49,5 @@
     },
     "minimum-stability": "stable",
     "prefer-stable": true,
-<<<<<<< HEAD
     "version": "1.5.10"
 }
-=======
-    "version": "1.5.9"
-}
->>>>>>> 68bd0bdebb4ca8d131e3af611278ffdb6bbab1dd
