@@ -5,6 +5,11 @@ Tous les changements notables de ce projet seront documentés dans ce fichier.
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/),
 et ce projet adhère à [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [1.5.11] - 2025-12-17
+
+### Maintenance
+- Synchronisation de `composer.lock` avec `composer.json` après installation des dépendances
+
 ## [1.5.10] - 2025-01-XX
 
 ### Qualité
