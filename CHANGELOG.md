@@ -5,6 +5,14 @@ Tous les changements notables de ce projet seront documentés dans ce fichier.
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/),
 et ce projet adhère à [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [1.5.12] - 2025-01-XX
+
+### Corrections
+- ✅ Correction de la validation des commandes `composer` dans `safeExec()`
+  - La méthode extrait maintenant le basename de la commande pour accepter les chemins complets
+  - Ajout de `composer.phar` à la whitelist des commandes autorisées
+  - Les installations de packages et la régénération de l'autoloader fonctionnent maintenant correctement
+
 ## [1.5.11] - 2025-12-17
 
 ### Maintenance
