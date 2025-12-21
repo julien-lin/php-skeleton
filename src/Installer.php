@@ -169,11 +169,12 @@ class Installer
             return;
         }
         
-        $command = 'cd ' . escapeshellarg($targetDir) . ' && ' . escapeshellarg($composerPath) . ' dump-autoload --no-interaction 2>&1';
+        $command = 'cd ' . escapeshellarg($targetDir) . ' && ' . escapeshellarg($composerPath) . ' dump-autoload --no-interaction';
         $output = [];
         $returnCode = 0;
         
         // ✅ PHASE 1.1: Utiliser safeExec au lieu de exec()
+        // Note: safeExec() ajoute déjà '2>&1' lors de l'exécution
         try {
             self::safeExec($command, $output, $returnCode);
         } catch (\RuntimeException $e) {
