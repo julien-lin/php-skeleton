@@ -232,7 +232,7 @@ class Installer
     private static function safeExec(string $command, array &$output, int &$returnCode): bool
     {
         // Whitelist de commandes autorisées
-        $allowedCommands = ['composer', 'which'];
+        $allowedCommands = ['composer', 'which', 'composer.phar'];
         
         // Extraire la commande de base (premier mot)
         $commandParts = preg_split('/\s+/', trim($command), 2);
@@ -248,8 +248,17 @@ class Installer
             }
         }
         
+        // Nettoyer la commande (enlever les guillemets)
+        $baseCommand = trim($baseCommand, '\'"');
+        
+        // Extraire le nom de la commande (basename) pour gérer les chemins complets
+        // Exemple: /usr/local/bin/composer -> composer
+        // Exemple: composer.phar -> composer.phar
+        $commandName = basename($baseCommand);
+        
         // Vérifier que la commande de base est autorisée
-        if (!in_array($baseCommand, $allowedCommands, true)) {
+        // On accepte soit le nom exact, soit le basename
+        if (!in_array($baseCommand, $allowedCommands, true) && !in_array($commandName, $allowedCommands, true)) {
             throw new \RuntimeException("Commande non autorisée: {$baseCommand}");
         }
         
