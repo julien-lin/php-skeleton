@@ -5,6 +5,13 @@ Tous les changements notables de ce projet seront documentés dans ce fichier.
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/),
 et ce projet adhère à [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [1.5.13] - 2025-01-XX
+
+### Corrections
+- ✅ Correction de la régénération de l'autoloader
+  - Retrait de `2>&1` de la commande dans `regenerateAutoloader()` car `safeExec()` l'ajoute déjà lors de l'exécution
+  - La validation de sécurité ne rejette plus la commande de régénération de l'autoloader
+
 ## [1.5.12] - 2025-01-XX
 
 ### Corrections
