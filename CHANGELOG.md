@@ -53,6 +53,7 @@ et ce projet adhère à [Semantic Versioning](https://semver.org/lang/fr/).
 - Les vues d’accueil PHP et Vision sont maintenant chargées depuis des templates versionnés hors de `Installer.php`.
 - Les templates partagés d’en-tête et de pied de page sont maintenant versionnés hors de `Installer.php`.
 - Les sources de templates sont maintenant organisées par profil et environnement commun.
+- Le bootstrap public partage maintenant un template versionné entre les profils, avec des blocs conditionnels injectés.
 - Correction de la réponse `/account` pour les visiteurs non authentifiés.
 
 ## [1.5.13] - 2025-01-XX

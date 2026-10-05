@@ -9,6 +9,8 @@ Les templates sources de l’installateur sont organisés selon deux axes :
 
 L’installateur conserve les chemins générés (`views/home` et `views/_templates`) afin que les applications produites gardent une structure uniforme. Un template spécifique à un nouvel environnement doit être ajouté sous `environments/<nom>/` et sélectionné explicitement par l’installateur.
 
+Le bootstrap public utilise le template commun `environments/common/public/index.php`. Les blocs dépendant des profils sont injectés dans ses emplacements `{{bootstrap_*}}`, puis aucun marqueur ne doit rester dans les fichiers générés.
+
 Cette référence décrit les variables consommées par les fichiers générés par `php-skeleton`. Les valeurs sensibles doivent rester dans `.env` et ne doivent jamais être copiées dans les templates ou commitées.
 
 ## Variables d’environnement locales

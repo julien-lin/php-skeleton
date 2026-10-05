@@ -751,6 +751,20 @@ SQL);
         );
     }
 
+    public function testBootstrapUsesCommonVersionedTemplateWithResolvedProfileSlots(): void
+    {
+        $reflection = new ReflectionClass(Installer::class);
+        $this->invokeSilently($reflection, 'createLocalStructure', $this->projectDir, false, false);
+
+        $source = (string) file_get_contents(dirname(__DIR__) . '/templates/installer/environments/common/public/index.php');
+        $generated = (string) file_get_contents($this->projectDir . '/public/index.php');
+
+        self::assertStringContainsString('{{bootstrap_imports}}', $source);
+        self::assertStringContainsString('{{bootstrap_api_routes}}', $source);
+        self::assertStringNotContainsString('{{bootstrap_', $generated);
+        self::assertStringContainsString('POINT D\'ENTRÉE DE L\'APPLICATION', $generated);
+    }
+
     public function testVisionSharedHeaderUsesVersionedInstallerTemplate(): void
     {
         $reflection = new ReflectionClass(Installer::class);

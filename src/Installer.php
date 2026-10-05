@@ -2896,168 +2896,64 @@ PHP;
         bool $hasSecure = false
     ): string
     {
-        $content = <<<'PHP'
-<?php
+        $template = self::readInstallerTemplate('environments/common/public/index.php');
 
-/**
- * ============================================
- * POINT D'ENTRÉE DE L'APPLICATION (Bootstrap)
- * ============================================
- * 
- * Ce fichier est le point d'entrée unique de l'application.
- * Il initialise tous les composants nécessaires au fonctionnement de l'app.
- * 
- * CONCEPT PÉDAGOGIQUE : Bootstrap Pattern
- * Le bootstrap est le code qui initialise l'application avant son exécution.
- * C'est ici que l'on configure les services, les routes, et les middlewares.
- */
+        return strtr($template, [
+            '{{bootstrap_imports}}' => self::generateBootstrapImports($hasDoctrine, $hasAuth, $hasApi, $hasSecure),
+            '{{bootstrap_database}}' => $hasDoctrine
+                ? "\n\$dbConfig = \$app->getConfig()->get('database', []);"
+                : '',
+            '{{bootstrap_container_services}}' => self::generateBootstrapContainerServices($hasDoctrine, $hasAuth),
+            '{{bootstrap_security}}' => self::generateBootstrapSecurity($hasSecure),
+            '{{bootstrap_web_middlewares}}' => self::generateBootstrapWebMiddlewares($hasSecure, $hasApi),
+            '{{bootstrap_auth_routes}}' => $hasAuth
+                ? "    \$router->registerRoutes(\\App\\Controller\\AuthController::class);\n"
+                : '',
+            '{{bootstrap_api_routes}}' => self::generateBootstrapApiRoutes($hasApi),
+        ]);
+    }
 
-declare(strict_types=1);
-
-require_once dirname(__DIR__) . '/vendor/autoload.php';
-
-use JulienLinard\Core\Application;
-use JulienLinard\Core\Middleware\CsrfMiddleware;
-use JulienLinard\Core\Form\Validator as CoreValidator;
-use JulienLinard\Core\View\View;
-use App\Controller\HomeController;
-use App\Service\EnvValidator;
-use App\Service\EventListenerService;
-use App\Service\BootstrapService;
-PHP;
+    private static function generateBootstrapImports(
+        bool $hasDoctrine,
+        bool $hasAuth,
+        bool $hasApi,
+        bool $hasSecure
+    ): string
+    {
+        $imports = [];
 
         if ($hasDoctrine) {
-            $content .= "\nuse JulienLinard\Doctrine\EntityManager;";
+            $imports[] = 'use JulienLinard\\Doctrine\\EntityManager;';
         }
-        
+
         if ($hasAuth) {
-            $content .= "\nuse JulienLinard\Auth\AuthManager;";
+            $imports[] = 'use JulienLinard\\Auth\\AuthManager;';
         }
 
         if ($hasApi) {
-            $content .= "\nuse App\Controller\ProductController;";
-            $content .= "\nuse JulienLinard\\Core\\Middleware\\CorsMiddleware;";
+            $imports[] = 'use App\\Controller\\ProductController;';
+            $imports[] = 'use JulienLinard\\Core\\Middleware\\CorsMiddleware;';
         }
-        
-        if ($hasApi || $hasSecure) {
-            $content .= <<<'PHP'
 
-use JulienLinard\Core\Middleware\RateLimitMiddleware;
-use JulienLinard\Core\Middleware\RequestValidationMiddleware;
-PHP;
+        if ($hasApi || $hasSecure) {
+            $imports[] = 'use JulienLinard\\Core\\Middleware\\RateLimitMiddleware;';
+            $imports[] = 'use JulienLinard\\Core\\Middleware\\RequestValidationMiddleware;';
         }
 
         if ($hasSecure) {
-            $content .= <<<'PHP'
-
-use JulienLinard\Core\Middleware\CompressionMiddleware;
-use JulienLinard\Core\Middleware\SecurityHeadersMiddleware;
-PHP;
+            $imports[] = 'use JulienLinard\\Core\\Middleware\\CompressionMiddleware;';
+            $imports[] = 'use JulienLinard\\Core\\Middleware\\SecurityHeadersMiddleware;';
         }
 
-        $content .= "\n\n";
-        
-        $content .= <<<'PHP'
-// ============================================
-// ÉTAPE 1 : CRÉATION DE L'APPLICATION
-// ============================================
-// Créer l'instance de l'application
-// CONCEPT : Application Singleton
-$app = Application::create(dirname(__DIR__));
-
-// ============================================
-// ÉTAPE 2 : CHARGEMENT DES VARIABLES D'ENVIRONNEMENT
-// ============================================
-// IMPORTANT : Charger .env AVANT la configuration
-// Les fichiers de configuration (comme database.php) ont besoin des variables d'environnement
-// CONCEPT : Variables d'environnement pour la sécurité (identifiants, secrets)
-try {
-    $app->loadEnv();
-} catch (\Exception $e) {
-    throw new \RuntimeException(
-        "Erreur lors du chargement du fichier .env: " . $e->getMessage() . "\n" .
-        "Veuillez créer un fichier .env dans le répertoire www/ avec les variables nécessaires.\n" .
-        "Consultez .env.example pour un exemple."
-    );
-}
-
-// ============================================
-// ÉTAPE 3 : CHARGEMENT DE LA CONFIGURATION
-// ============================================
-// Charger la configuration depuis le répertoire config/
-// CONCEPT : Configuration centralisée avec ConfigLoader
-// Tous les fichiers PHP dans config/ sont automatiquement chargés
-// Les fichiers de configuration peuvent maintenant utiliser getenv() pour lire les variables
-$app->loadConfig('config');
-PHP;
-
-        if ($hasDoctrine) {
-            $content .= <<<'PHP'
-
-$dbConfig = $app->getConfig()->get('database', []);
-PHP;
-        }
-        
-        $content .= <<<'PHP'
-
-// ============================================
-// ÉTAPE 4 : INITIALISATION DE L'APPLICATION
-// ============================================
-// Définir les chemins des vues (templates)
-// CONCEPT : Configuration des chemins pour le moteur de templates
-$app->setViewsPath(dirname(__DIR__) . '/views');
-$app->setPartialsPath(dirname(__DIR__) . '/views/_templates');
-
-// ============================================
-// ÉTAPE 5 : VALIDATION DES VARIABLES D'ENVIRONNEMENT
-// ============================================
-// Valider toutes les variables d'environnement requises
-// CONCEPT : Validation centralisée pour une meilleure maintenabilité
-EnvValidator::validate();
-
-// ============================================
-// ÉTAPE 6 : CONFIGURATION DU MODE DEBUG ET ERROR HANDLER
-// ============================================
-// Activer le mode debug selon la variable d'environnement
-// CONCEPT : Environnements (dev/prod)
-// En développement : afficher les erreurs pour déboguer
-// En production : masquer les erreurs pour la sécurité
-$debug = BootstrapService::configureDebug($app);
-$viewsPath = dirname(__DIR__) . '/views';
-
-// Le cache de vues est activé uniquement hors développement.
-$viewCacheDir = dirname(__DIR__) . '/storage/cache/views';
-if ($debug) {
-    View::configureCache(null);
-} else {
-    if (!is_dir($viewCacheDir) && !mkdir($viewCacheDir, 0755, true) && !is_dir($viewCacheDir)) {
-        throw new \RuntimeException("Impossible de créer le cache des vues: {$viewCacheDir}");
+        return implode("\n", $imports);
     }
-    View::configureCache($viewCacheDir, 3600);
-}
 
-$logger = BootstrapService::configureErrorHandler($app, $debug, $viewsPath);
-
-// ============================================
-// ÉTAPE 7 : CONFIGURATION DE SÉCURITÉ DES SESSIONS
-// ============================================
-// Ces paramètres sécurisent les cookies de session PHP
-// CONCEPT : Sécurité des sessions (XSS, CSRF, fixation de session)
-BootstrapService::configureSessionSecurity();
-
-// ============================================
-// ÉTAPE 9 : CONFIGURATION DU CONTAINER DI
-// ============================================
-// Récupérer le container d'injection de dépendances
-// CONCEPT PÉDAGOGIQUE : Dependency Injection (DI) Container
-// Le container gère la création et l'injection des dépendances
-// Permet de découpler le code et facilite les tests
-$container = $app->getContainer();
-PHP;
+    private static function generateBootstrapContainerServices(bool $hasDoctrine, bool $hasAuth): string
+    {
+        $blocks = [];
 
         if ($hasDoctrine) {
-            $content .= <<<'PHP'
-
+            $blocks[] = <<<'PHP'
 // Enregistrer EntityManager comme singleton
 // CONCEPT : Singleton = une seule instance partagée dans toute l'application
 // Utile pour les services coûteux (connexion DB, etc.)
@@ -3078,11 +2974,10 @@ $container->singleton(EntityManager::class, function() use ($dbConfig) {
 });
 PHP;
         }
-        
-        if ($hasAuth) {
-            if ($hasDoctrine) {
-                $content .= <<<'PHP'
 
+        if ($hasAuth) {
+            $blocks[] = $hasDoctrine
+                ? <<<'PHP'
 // Enregistrer AuthManager comme singleton
 // Le AuthManager a besoin de l'EntityManager, donc on l'injecte via le container
 // CONCEPT : Injection de dépendances - AuthManager dépend d'EntityManager
@@ -3093,10 +2988,8 @@ $container->singleton(AuthManager::class, function() use ($container) {
         'entity_manager' => $em
     ]);
 });
-PHP;
-            } else {
-                $content .= <<<'PHP'
-
+PHP
+                : <<<'PHP'
 // Enregistrer AuthManager comme singleton
 $container->singleton(AuthManager::class, function() {
     return new AuthManager([
@@ -3104,36 +2997,18 @@ $container->singleton(AuthManager::class, function() {
     ]);
 });
 PHP;
-            }
         }
-        
-        $content .= <<<'PHP'
 
-// Enregistrer le validateur déjà fourni par core-php.
-// Il s'appuie lui-même sur php-validator et évite un binding redondant.
-$container->singleton(CoreValidator::class, static fn(): CoreValidator => new CoreValidator());
+        return implode("\n\n", $blocks);
+    }
 
-// Enregistrer FileUploadService comme singleton (si la classe existe)
-// CONCEPT : Service d'upload de fichiers avec validation intégrée
-// Note : Ce service doit être créé dans src/Service/FileUploadService.php si nécessaire
-if (class_exists(\App\Service\FileUploadService::class)) {
-    $container->singleton(\App\Service\FileUploadService::class, function() use ($container) {
-        return new \App\Service\FileUploadService();
-    });
-}
+    private static function generateBootstrapSecurity(bool $hasSecure): string
+    {
+        if (!$hasSecure) {
+            return '';
+        }
 
-// ============================================
-// ÉTAPE 10 : CONFIGURATION DU ROUTER ET MIDDLEWARES
-// ============================================
-// Récupérer le router qui gère les routes de l'application
-// CONCEPT PÉDAGOGIQUE : Router (Routeur)
-// Le router fait le lien entre les URLs et les méthodes des contrôleurs
-$router = $app->getRouter();
-PHP;
-
-        if ($hasSecure) {
-            $content .= <<<'PHP'
-
+        return <<<'PHP'
 // Les middlewares de réponse restent globaux afin de couvrir les réponses
 // web et API. Le routeur les applique après le contrôleur.
 $router->addMiddleware(new SecurityHeadersMiddleware([
@@ -3144,56 +3019,27 @@ $router->addMiddleware(new CompressionMiddleware([
     'minSize' => 1024,
 ]));
 PHP;
+    }
+
+    private static function generateBootstrapWebMiddlewares(bool $hasSecure, bool $hasApi): string
+    {
+        if (!$hasSecure || $hasApi) {
+            return '';
         }
 
-        $content .= <<<'PHP'
-
-// ============================================
-// ÉTAPE 8 : CONFIGURATION DU SYSTÈME D'ÉVÉNEMENTS
-// ============================================
-// Récupérer le dispatcher d'événements et enregistrer les listeners
-// CONCEPT : EventDispatcher pour l'extensibilité
-// Permet d'écouter les événements de l'application (request.started, response.sent, etc.)
-$events = $app->getEvents();
-EventListenerService::register($events, $logger);
-
-// ============================================
-// ÉTAPE 11 : ENREGISTREMENT DES ROUTES
-// ============================================
-// Enregistrer toutes les routes définies dans les contrôleurs
-// CONCEPT PÉDAGOGIQUE : Route Attributes (PHP 8)
-// Les routes sont définies directement dans les contrôleurs avec des attributs #[Route]
-// Le router scanne les contrôleurs et enregistre automatiquement les routes
-
-// Pipeline web officiel : CSRF, validation, limitation de débit.
-// Ces middlewares s'appliquent aux routes HTML et aux routes d'authentification,
-// mais pas au groupe API stateless ci-dessous.
-$router->group('', [
-    new CsrfMiddleware(),
-PHP;
-
-        if ($hasSecure && !$hasApi) {
-            $content .= <<<'PHP'
+        return <<<'PHP'
     new RequestValidationMiddleware(10_485_760),
     new RateLimitMiddleware(100, 60, dirname(__DIR__) . '/storage/cache/rate-limit'),
 PHP;
+    }
+
+    private static function generateBootstrapApiRoutes(bool $hasApi): string
+    {
+        if (!$hasApi) {
+            return '';
         }
 
-        $content .= <<<'PHP'
-], static function ($router): void {
-    $router->registerRoutes(HomeController::class);
-
-PHP;
-
-        if ($hasAuth) {
-            $content .= '    $router->registerRoutes(\\App\\Controller\\AuthController::class);' . "\n";
-        }
-
-        $content .= "});\n";
-
-        if ($hasApi) {
-            $content .= <<<'PHP'
-
+        return <<<'PHP'
 // Pipeline API officiel : CORS, validation, limitation de débit.
 // Le groupe est stateless : aucun middleware CSRF n'y est enregistré.
 $router->group('', [
@@ -3204,18 +3050,9 @@ $router->group('', [
     $router->registerRoutes(\App\Controller\ProductController::class);
 });
 PHP;
-        }
-
-        $content .= <<<'PHP'
-// Démarrer l'application
-$app->start();
-
-// Traiter la requête HTTP
-$app->handle();
-PHP;
-        
-        return $content;
     }
+
+
     
     private static function createHeaderTemplate(string $templatesDir, bool $useVision = false): void
     {
