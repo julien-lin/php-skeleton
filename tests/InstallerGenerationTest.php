@@ -121,6 +121,7 @@ final class InstallerGenerationTest extends TestCase
         $this->invoke($reflection, 'copyComposerJson', $this->projectDir, $this->projectDir, false, false);
         $this->runComposer($this->projectDir, 'install', '--no-dev', '--no-interaction', '--prefer-dist');
         $this->runComposer($this->projectDir, 'validate', '--no-check-publish', '--no-interaction');
+        $this->runComposer($this->projectDir, 'audit', '--no-interaction');
         file_put_contents(
             $this->projectDir . '/.env',
             str_replace('APP_DEBUG=1', 'APP_DEBUG=0', (string) file_get_contents($this->projectDir . '/.env'))
@@ -191,6 +192,7 @@ final class InstallerGenerationTest extends TestCase
         $this->invoke($reflection, 'copyComposerJson', $this->projectDir, $this->projectDir, false, false, false, false, true);
         $this->runComposer($this->projectDir, 'install', '--no-dev', '--no-interaction', '--prefer-dist');
         $this->runComposer($this->projectDir, 'validate', '--no-check-publish', '--no-interaction');
+        $this->runComposer($this->projectDir, 'audit', '--no-interaction');
 
         [$exitCode, $output, $errors] = $this->runGeneratedHealthRequest();
 
@@ -209,6 +211,7 @@ final class InstallerGenerationTest extends TestCase
         $this->invoke($reflection, 'copyComposerJson', $this->projectDir, $this->projectDir, true, false);
         $this->runComposer($this->projectDir, 'install', '--no-dev', '--no-interaction', '--prefer-dist');
         $this->runComposer($this->projectDir, 'validate', '--no-check-publish', '--no-interaction');
+        $this->runComposer($this->projectDir, 'audit', '--no-interaction');
 
         require_once $this->projectDir . '/vendor/autoload.php';
 
@@ -268,6 +271,7 @@ final class InstallerGenerationTest extends TestCase
         $this->invokeSilently($reflection, 'createLocalStructure', $this->projectDir, true, true);
         $this->invoke($reflection, 'copyComposerJson', $this->projectDir, $this->projectDir, true, true);
         $this->runComposer($this->projectDir, 'install', '--no-dev', '--no-interaction', '--prefer-dist');
+        $this->runComposer($this->projectDir, 'audit', '--no-interaction');
 
         require_once $this->projectDir . '/vendor/autoload.php';
 
@@ -416,6 +420,7 @@ SQL);
         $this->invokeSilently($reflection, 'createLocalStructure', $this->projectDir, true, true);
         $this->invoke($reflection, 'copyComposerJson', $this->projectDir, $this->projectDir, true, true);
         $this->runComposer($this->projectDir, 'install', '--no-dev', '--no-interaction', '--prefer-dist');
+        $this->runComposer($this->projectDir, 'audit', '--no-interaction');
 
         $env = str_replace(
             'DB_PORT=3306',
@@ -466,6 +471,7 @@ SQL);
 
         $this->runComposer($this->projectDir, 'install', '--no-dev', '--no-interaction', '--prefer-dist');
         $this->runComposer($this->projectDir, 'validate', '--no-check-publish', '--no-interaction');
+        $this->runComposer($this->projectDir, 'audit', '--no-interaction');
 
         require_once $this->projectDir . '/vendor/autoload.php';
 

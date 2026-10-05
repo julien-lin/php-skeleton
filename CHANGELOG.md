@@ -32,6 +32,7 @@ et ce projet adhère à [Semantic Versioning](https://semver.org/lang/fr/).
 - MariaDB est désormais publiée uniquement sur `127.0.0.1` dans le compose de développement généré.
 - Le validateur d’environnement généré refuse aussi l’absence de `APP_SECRET` avant l’activation de l’authentification.
 - Le smoke test du profil base vérifie désormais le message affiché avec un `.env` incomplet.
+- Les audits Composer couvrent désormais les profils générés installables ; le profil Vision reste bloqué par l’absence du paquet stable sur Packagist.
 - Correction de la réponse `/account` pour les visiteurs non authentifiés.
 
 ## [1.5.13] - 2025-01-XX
