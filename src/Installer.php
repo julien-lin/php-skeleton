@@ -678,6 +678,7 @@ class Installer
         file_put_contents($wwwDir . '/storage/logs/.gitkeep', '');
         file_put_contents($wwwDir . '/migrations/.gitkeep', '');
         file_put_contents($publicDir . '/uploads/.gitkeep', '');
+        self::createUploadsHtaccess($publicDir . '/uploads');
         
         // Fixer les permissions pour Linux (après création de tous les dossiers)
         self::fixPermissions($wwwDir, true);
@@ -693,6 +694,18 @@ class Installer
         self::createEnvValidator($serviceDir, $requiresDatabase);
         self::createEventListenerService($serviceDir);
         self::createBootstrapService($serviceDir);
+    }
+
+    private static function createUploadsHtaccess(string $uploadsDir): void
+    {
+        $content = <<<'HTACCESS'
+# Les uploads ne doivent jamais être interprétés comme du code exécutable.
+<FilesMatch "\.(php[0-9]?|phtml|phar|cgi|pl|py|sh)$">
+    Require all denied
+</FilesMatch>
+HTACCESS;
+
+        self::writeGeneratedFile($uploadsDir . '/.htaccess', $content);
     }
     
     private static function createEnvValidator(string $serviceDir, bool $requiresDatabase): void
@@ -1634,6 +1647,7 @@ ENV;
         file_put_contents($baseDir . '/storage/logs/.gitkeep', '');
         file_put_contents($baseDir . '/migrations/.gitkeep', '');
         file_put_contents($publicDir . '/uploads/.gitkeep', '');
+        self::createUploadsHtaccess($publicDir . '/uploads');
         
         // Fixer les permissions pour Linux (après création de tous les dossiers)
         self::fixPermissions($baseDir, false);

@@ -40,6 +40,7 @@ et ce projet adhère à [Semantic Versioning](https://semver.org/lang/fr/).
 - Composer est désormais vérifié avant les questions et la génération de fichiers.
 - Les fichiers PHP générés sont contrôlés par `php -l` avant l’installation des dépendances.
 - Les Dockerfiles installent uniquement `mbstring`/`opcache`, et `pdo`/`pdo_mysql` pour les profils DB.
+- Les répertoires d’upload générés bloquent désormais l’exécution des scripts PHP/CGI.
 - Correction de la réponse `/account` pour les visiteurs non authentifiés.
 
 ## [1.5.13] - 2025-01-XX

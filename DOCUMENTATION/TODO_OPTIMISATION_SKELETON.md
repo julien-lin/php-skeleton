@@ -412,7 +412,7 @@ Cette checklist couvre l’optimisation de `php-skeleton`, de son installateur, 
 - [ ] Refuser les extensions dangereuses et les doubles extensions.
 - [ ] Vérifier le type réel du fichier et sa taille.
 - [ ] Générer des noms de fichiers non prédictibles.
-- [ ] Empêcher l’exécution de scripts dans le répertoire d’upload.
+- [x] Empêcher l’exécution de scripts dans le répertoire d’upload.
 - [ ] Ajouter des tests de traversée de chemin et de fichier malveillant.
 
 ### P2 — Performance

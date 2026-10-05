@@ -36,6 +36,10 @@ final class InstallerGenerationTest extends TestCase
         self::assertFileExists($this->projectDir . '/.env');
         self::assertFileExists($this->projectDir . '/.env.example');
         self::assertFileExists($this->projectDir . '/public/index.php');
+        self::assertFileExists($this->projectDir . '/public/uploads/.htaccess');
+        $uploadsHtaccess = (string) file_get_contents($this->projectDir . '/public/uploads/.htaccess');
+        self::assertStringContainsString('Require all denied', $uploadsHtaccess);
+        self::assertStringContainsString('php[0-9]?', $uploadsHtaccess);
         self::assertFileExists($this->projectDir . '/src/Controller/HomeController.php');
         self::assertStringContainsString("path: '/health'", (string) file_get_contents($this->projectDir . '/src/Controller/HomeController.php'));
         self::assertFileDoesNotExist($this->projectDir . '/config/database.php');
