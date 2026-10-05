@@ -47,6 +47,36 @@ final class InstallerGenerationTest extends TestCase
         self::assertMatchesRegularExpression('/^APP_SECRET=[a-f0-9]{64}$/m', (string) file_get_contents($this->projectDir . '/.env'));
     }
 
+    public function testGeneratedEnvironmentValidatorEnforcesSafeDefaults(): void
+    {
+        $reflection = new ReflectionClass(Installer::class);
+        $this->invokeSilently($reflection, 'createLocalStructure', $this->projectDir, false, false);
+        require_once $this->projectDir . '/src/Service/EnvValidator.php';
+
+        $env = (string) file_get_contents($this->projectDir . '/.env');
+        self::assertMatchesRegularExpression('/^APP_SECRET=[a-f0-9]{64}$/m', $env);
+        self::assertSame(1, preg_match('/^APP_SECRET=([a-f0-9]{64})$/m', $env, $secretMatches));
+        $secret = $secretMatches[1];
+        $originalSecret = getenv('APP_SECRET');
+        $originalLocale = getenv('APP_LOCALE');
+
+        try {
+            putenv('APP_SECRET=' . $secret);
+            putenv('APP_LOCALE=fr');
+            \App\Service\EnvValidator::validate();
+
+            putenv('APP_SECRET=too-short');
+            $this->expectRuntimeExceptionFromEnvValidator('APP_SECRET doit contenir au moins 32 caractères');
+
+            putenv('APP_SECRET=' . bin2hex(random_bytes(32)));
+            putenv('APP_LOCALE=de');
+            $this->expectRuntimeExceptionFromEnvValidator("Locale non supportée: 'de'");
+        } finally {
+            $originalSecret === false ? putenv('APP_SECRET') : putenv('APP_SECRET=' . $originalSecret);
+            $originalLocale === false ? putenv('APP_LOCALE') : putenv('APP_LOCALE=' . $originalLocale);
+        }
+    }
+
     public function testBaseProfileInstallsAndServesHealthRoute(): void
     {
         $reflection = new ReflectionClass(Installer::class);
@@ -497,6 +527,16 @@ SQL);
         fclose($pipes[2]);
 
         return [proc_close($process), $output, $errors];
+    }
+
+    private function expectRuntimeExceptionFromEnvValidator(string $message): void
+    {
+        try {
+            \App\Service\EnvValidator::validate();
+            self::fail('Le validateur d’environnement devait rejeter la configuration.');
+        } catch (\RuntimeException $exception) {
+            self::assertStringContainsString($message, $exception->getMessage());
+        }
     }
 
     private function removeDirectory(string $directory): void

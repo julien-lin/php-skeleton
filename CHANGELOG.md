@@ -23,6 +23,7 @@ et ce projet adhère à [Semantic Versioning](https://semver.org/lang/fr/).
 - Ajout d’un smoke test du profil de base : installation Composer, validation et démarrage réel de `/health`.
 - Ajout d’un smoke test du profil sécurisé avec installation Composer et exécution réelle des middlewares sur `/health`.
 - Ajout d’un smoke test du profil base de données avec installation Composer et EntityManager SQLite.
+- Ajout de tests du validateur d’environnement pour les secrets aléatoires, secrets trop courts et locales invalides.
 - Correction de la réponse `/account` pour les visiteurs non authentifiés.
 
 ## [1.5.13] - 2025-01-XX

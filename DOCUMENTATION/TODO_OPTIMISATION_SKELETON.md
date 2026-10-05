@@ -432,7 +432,7 @@ Cette checklist couvre l’optimisation de `php-skeleton`, de son installateur, 
 - [ ] Augmenter la couverture des cas d’échec de l’installateur.
 - [ ] Tester la validation des entrées utilisateur.
 - [ ] Tester la sérialisation des fichiers `.env`.
-- [ ] Tester les valeurs par défaut sûres.
+- [x] Tester les valeurs par défaut sûres.
 - [ ] Tester le registre des dépendances par profil.
 - [ ] Tester l’ordre et le contrat des middlewares.
 
