@@ -51,6 +51,7 @@ et ce projet adhère à [Semantic Versioning](https://semver.org/lang/fr/).
 - Les choix de profils de l’installateur sont maintenant regroupés dans une configuration typée et immuable.
 - Les chemins du projet cible et du staging sont centralisés dans `InstallPaths` pour la publication transactionnelle.
 - Les vues d’accueil PHP et Vision sont maintenant chargées depuis des templates versionnés hors de `Installer.php`.
+- Les templates partagés d’en-tête et de pied de page sont maintenant versionnés hors de `Installer.php`.
 - Correction de la réponse `/account` pour les visiteurs non authentifiés.
 
 ## [1.5.13] - 2025-01-XX

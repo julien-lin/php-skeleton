@@ -736,6 +736,32 @@ SQL);
         );
     }
 
+    public function testSharedTemplatesAreLoadedFromVersionedInstallerTemplates(): void
+    {
+        $reflection = new ReflectionClass(Installer::class);
+        $this->invokeSilently($reflection, 'createLocalStructure', $this->projectDir, false, false);
+
+        self::assertSame(
+            (string) file_get_contents(dirname(__DIR__) . '/templates/installer/views/_templates/_header.html.php'),
+            (string) file_get_contents($this->projectDir . '/views/_templates/_header.html.php')
+        );
+        self::assertSame(
+            (string) file_get_contents(dirname(__DIR__) . '/templates/installer/views/_templates/_footer.html.php'),
+            (string) file_get_contents($this->projectDir . '/views/_templates/_footer.html.php')
+        );
+    }
+
+    public function testVisionSharedHeaderUsesVersionedInstallerTemplate(): void
+    {
+        $reflection = new ReflectionClass(Installer::class);
+        $this->invokeSilently($reflection, 'createLocalStructure', $this->projectDir, false, false, false, true);
+
+        self::assertSame(
+            (string) file_get_contents(dirname(__DIR__) . '/templates/installer/views/_templates/_header.html.vis'),
+            (string) file_get_contents($this->projectDir . '/views/_templates/_header.html.php')
+        );
+    }
+
     public function testGenerationSupportsPathsWithSpaces(): void
     {
         $reflection = new ReflectionClass(Installer::class);
