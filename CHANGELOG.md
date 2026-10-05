@@ -19,6 +19,7 @@ et ce projet adhère à [Semantic Versioning](https://semver.org/lang/fr/).
 - Le bootstrap Doctrine vérifie explicitement la connexion et remonte une erreur de configuration contextualisée.
 - Les tests du profil Doctrine couvrent les variables DB manquantes et la lecture des valeurs depuis `.env`.
 - Ajout d’un smoke test Auth avec installation des dépendances, formulaire de connexion, identifiants invalides et déconnexion.
+- Le smoke test Auth vérifie aussi le hash du mot de passe, la connexion valide, la session active et la réponse du compte protégé.
 - Correction de la réponse `/account` pour les visiteurs non authentifiés.
 
 ## [1.5.13] - 2025-01-XX

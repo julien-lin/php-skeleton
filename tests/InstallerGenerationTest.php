@@ -117,8 +117,64 @@ final class InstallerGenerationTest extends TestCase
         self::assertSame(422, $invalidLogin->getStatusCode());
         self::assertSame('application/json', $invalidLogin->getHeaders()['content-type'] ?? null);
 
+        $entityManager->getConnection()->execute(<<<'SQL'
+CREATE TABLE users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    email TEXT NOT NULL UNIQUE,
+    password TEXT NOT NULL,
+    roles TEXT NOT NULL DEFAULT 'user',
+    permissions TEXT NULL,
+    created_at TEXT NULL
+)
+SQL);
+
+        $plainPassword = 'correct-horse-battery-staple';
+        $hashedPassword = password_hash($plainPassword, PASSWORD_BCRYPT);
+        $user = new \App\Entity\User('alice@example.com', $hashedPassword);
+        $entityManager->persist($user);
+        $entityManager->flush();
+
+        self::assertNotSame($plainPassword, $user->getPassword());
+        self::assertTrue(password_verify($plainPassword, $user->getPassword()));
+        self::assertNotNull($user->getId());
+
+        self::assertFalse($auth->attempt([
+            'email' => $user->getEmail(),
+            'password' => 'wrong-password',
+        ]));
+        self::assertTrue($auth->guest());
+
+        $validRequest = $this->createMock(\JulienLinard\Router\Request::class);
+        $validRequest->method('getBodyParam')->willReturnCallback(
+            static function (string $key, mixed $default = null) use ($plainPassword): mixed {
+                return match ($key) {
+                    'email' => 'alice@example.com',
+                    'password' => $plainPassword,
+                    default => $default,
+                };
+            }
+        );
+
+        $validLogin = $controller->login($validRequest);
+        self::assertSame(200, $validLogin->getStatusCode());
+        self::assertSame(['status' => 'authenticated'], json_decode($validLogin->getContent(), true, 512, JSON_THROW_ON_ERROR));
+        self::assertTrue($auth->check());
+
+        $account = $controller->account();
+        self::assertSame(200, $account->getStatusCode());
+        self::assertSame([
+            'id' => $user->getId(),
+            'email' => 'alice@example.com',
+            'roles' => ['user'],
+        ], json_decode($account->getContent(), true, 512, JSON_THROW_ON_ERROR));
+
         self::assertSame(200, $controller->logout()->getStatusCode());
-        self::assertSame(200, $controller->account()->getStatusCode());
+        self::assertFalse($auth->check());
+        self::assertSame([
+            'id' => null,
+            'email' => null,
+            'roles' => null,
+        ], json_decode($controller->account()->getContent(), true, 512, JSON_THROW_ON_ERROR));
     }
 
     public function testDatabaseConfigurationRejectsMissingSecrets(): void
