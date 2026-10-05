@@ -258,11 +258,11 @@ class InstallerSecurityTest extends TestCase
         }
     }
 
-    public function testIncompatibleProfileOptionsAreRejected(): void
+    public function testDependentProfileOptionsEnableDoctrine(): void
     {
-        $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessage('nécessitent le profil Doctrine');
-        $this->reflection->getMethod('validateProfileOptions')->invoke(null, false, true, false);
+        $options = new \Julien\Installer\InstallOptions(false, false, true, false, false, false);
+        self::assertTrue($options->installDoctrine);
+        self::assertTrue($options->installAuth);
     }
 
     public function testCompletionSummaryListsProfilesWithoutSecrets(): void

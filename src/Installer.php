@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Julien;
 
+use Julien\Installer\InstallOptions;
+
 class Installer
 {
     /**
@@ -16,37 +18,32 @@ class Installer
         self::displayWelcome();
         self::assertRequiredBinaries();
         
-        $useDocker = self::askQuestion('Voulez-vous utiliser Docker ? (y/N)', false);
-        
-        $installDoctrine = self::askQuestion('Voulez-vous installer Doctrine ? (y/N)', false);
-        $installAuth = self::askQuestion('Voulez-vous installer Auth ? (y/N)', false);
-        $installApi = self::askQuestion('Voulez-vous installer le profil API ? (y/N)', false);
-        $installVision = self::askQuestion('Voulez-vous installer le profil Vision ? (y/N)', false);
-        $installSecure = self::askQuestion('Voulez-vous activer le profil sécurisé ? (y/N)', false);
-
-        // Auth repose sur Doctrine : empêcher la génération d'un bootstrap incohérent.
-        if ($installAuth || $installApi) {
-            $installDoctrine = true;
-        }
-        self::validateProfileOptions($installDoctrine, $installAuth, $installApi);
+        $options = InstallOptions::fromChoices(
+            self::askQuestion('Voulez-vous utiliser Docker ? (y/N)', false),
+            self::askQuestion('Voulez-vous installer Doctrine ? (y/N)', false),
+            self::askQuestion('Voulez-vous installer Auth ? (y/N)', false),
+            self::askQuestion('Voulez-vous installer le profil API ? (y/N)', false),
+            self::askQuestion('Voulez-vous installer le profil Vision ? (y/N)', false),
+            self::askQuestion('Voulez-vous activer le profil sécurisé ? (y/N)', false)
+        );
         
         $baseDir = self::getProjectRoot();
 
-        self::assertInstallTargetIsSkeleton($baseDir, $useDocker);
+        self::assertInstallTargetIsSkeleton($baseDir, $options->useDocker);
 
         $stagingDir = self::createInstallationStagingDirectory();
         try {
-            $wwwDir = $useDocker ? $stagingDir . '/www' : $stagingDir;
+            $wwwDir = $options->useDocker ? $stagingDir . '/www' : $stagingDir;
 
-            if ($useDocker) {
+            if ($options->useDocker) {
                 // Configurer l'environnement dans le staging avant de créer Docker.
-                self::configureEnv($installDoctrine, $installApi, $stagingDir);
-                self::setupDocker($installDoctrine, $installAuth, $installApi, $installVision, $installSecure, $stagingDir);
+                self::configureEnv($options->installDoctrine, $options->installApi, $stagingDir);
+                self::setupDocker($options->installDoctrine, $options->installAuth, $options->installApi, $options->installVision, $options->installSecure, $stagingDir);
             } else {
-                self::setupLocal($installDoctrine, $installAuth, $installApi, $installVision, $installSecure, $stagingDir);
+                self::setupLocal($options->installDoctrine, $options->installAuth, $options->installApi, $options->installVision, $options->installSecure, $stagingDir);
             }
 
-            self::copyComposerJson($baseDir, $wwwDir, $installDoctrine, $installAuth, $installApi, $installVision, $installSecure);
+            self::copyComposerJson($baseDir, $wwwDir, $options->installDoctrine, $options->installAuth, $options->installApi, $options->installVision, $options->installSecure);
             self::validateGeneratedPhpFiles($wwwDir);
             self::validateGeneratedPlaceholders($wwwDir);
 
@@ -56,7 +53,7 @@ class Installer
 
             // Régénérer l'autoloader après la création des fichiers
             self::regenerateAutoloader($wwwDir);
-            self::publishInstallationStaging($stagingDir, $baseDir, $useDocker);
+            self::publishInstallationStaging($stagingDir, $baseDir, $options->useDocker);
         } catch (\Throwable $exception) {
             self::removeDirectory($stagingDir);
             throw $exception;
@@ -64,12 +61,12 @@ class Installer
 
         self::removeDirectory($stagingDir);
         self::displayCompletion(
-            $useDocker,
-            $installDoctrine,
-            $installAuth,
-            $installApi,
-            $installVision,
-            $installSecure
+            $options->useDocker,
+            $options->installDoctrine,
+            $options->installAuth,
+            $options->installApi,
+            $options->installVision,
+            $options->installSecure
         );
     }
     
@@ -378,15 +375,6 @@ class Installer
     {
         if (!preg_match('/^[a-z0-9][a-z0-9_.-]*\/[a-z0-9][a-z0-9_.-]*$/i', $package)) {
             throw new \RuntimeException("Commande non autorisée: package {$package}");
-        }
-    }
-
-    private static function validateProfileOptions(bool $installDoctrine, bool $installAuth, bool $installApi): void
-    {
-        if (($installAuth || $installApi) && !$installDoctrine) {
-            throw new \RuntimeException(
-                'Les profils Auth et API nécessitent le profil Doctrine.'
-            );
         }
     }
 
