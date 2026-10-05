@@ -17,6 +17,7 @@ et ce projet adhère à [Semantic Versioning](https://semver.org/lang/fr/).
 - Les actions CRUD API générées renvoient désormais les erreurs au format JSON Problem Details (RFC 7807).
 - Le profil API cible validation et limitation de débit sur `/api` sans compter la route `/health`.
 - Le bootstrap Doctrine vérifie explicitement la connexion et remonte une erreur de configuration contextualisée.
+- Les tests du profil Doctrine couvrent les variables DB manquantes et la lecture des valeurs depuis `.env`.
 
 ## [1.5.13] - 2025-01-XX
 

@@ -92,6 +92,69 @@ final class InstallerGenerationTest extends TestCase
         self::assertStringContainsString('new AuthMiddleware()', $authController);
     }
 
+    public function testDatabaseConfigurationRejectsMissingSecrets(): void
+    {
+        $reflection = new ReflectionClass(Installer::class);
+        $this->invokeSilently($reflection, 'createLocalStructure', $this->projectDir, true, false);
+
+        $keys = ['DB_NAME', 'MYSQL_DATABASE', 'DB_USER', 'MYSQL_USER', 'DB_PASS', 'MYSQL_PASSWORD'];
+        $original = [];
+        foreach ($keys as $key) {
+            $original[$key] = getenv($key);
+            putenv($key);
+        }
+
+        try {
+            $this->expectException(\RuntimeException::class);
+            $this->expectExceptionMessage('Variable d\'environnement obligatoire non définie');
+            require $this->projectDir . '/config/database.php';
+        } finally {
+            foreach ($original as $key => $value) {
+                if ($value === false) {
+                    putenv($key);
+                } else {
+                    putenv($key . '=' . $value);
+                }
+            }
+        }
+    }
+
+    public function testDatabaseConfigurationUsesEnvironmentValues(): void
+    {
+        $reflection = new ReflectionClass(Installer::class);
+        $this->invokeSilently($reflection, 'createLocalStructure', $this->projectDir, true, false);
+
+        $values = [
+            'DB_NAME' => 'test_db',
+            'DB_USER' => 'test_user',
+            'DB_PASS' => 'test_password',
+            'DB_HOST' => '127.0.0.1',
+            'DB_PORT' => '3307',
+        ];
+        $original = [];
+        foreach ($values as $key => $value) {
+            $original[$key] = getenv($key);
+            putenv($key . '=' . $value);
+        }
+
+        try {
+            $config = require $this->projectDir . '/config/database.php';
+            self::assertSame('test_db', $config['dbname']);
+            self::assertSame('test_user', $config['user']);
+            self::assertSame('test_password', $config['password']);
+            self::assertSame(3307, $config['port']);
+            self::assertStringNotContainsString('test_password', (string) file_get_contents($this->projectDir . '/config/database.php'));
+        } finally {
+            foreach ($original as $key => $value) {
+                if ($value === false) {
+                    putenv($key);
+                } else {
+                    putenv($key . '=' . $value);
+                }
+            }
+        }
+    }
+
     public function testApiProfileIncludesDoctrineAndApiArtifacts(): void
     {
         $reflection = new ReflectionClass(Installer::class);
