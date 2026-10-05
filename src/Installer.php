@@ -1064,6 +1064,15 @@ PHP;
             'minimum-stability' => 'stable',
             'prefer-stable' => true
         ];
+
+        if ($hasVision) {
+            $json['repositories'] = [
+                [
+                    'type' => 'vcs',
+                    'url' => 'https://github.com/julien-lin/php-vision',
+                ],
+            ];
+        }
         
         // Ajouter les scripts Composer pour doctrine-php si installé
         if ($hasDoctrine) {

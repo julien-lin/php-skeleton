@@ -340,7 +340,7 @@ Cette checklist couvre l’optimisation de `php-skeleton`, de son installateur, 
 - [x] Générer ce profil uniquement sur demande.
 - [x] Isoler ses dépendances et ses templates du profil base.
 - [x] Vérifier sa compatibilité avec la version PHP annoncée.
-- [ ] Ajouter un smoke test de génération et de rendu.
+- [x] Ajouter un smoke test de génération et de rendu.
 
 ---
 
@@ -461,7 +461,7 @@ Cette checklist couvre l’optimisation de `php-skeleton`, de son installateur, 
 
 ### P1 — Sécurité et régression
 
-- [ ] Exécuter `composer audit` sur le skeleton et sur les projets générés.
+- [x] Exécuter `composer audit` sur le skeleton et sur les projets générés.
 - [x] Ajouter un test qui détecte les secrets en clair dans les fichiers générés.
 - [ ] Ajouter un test qui détecte les commandes destructives sur le répertoire cible.
 - [ ] Ajouter un test de relance de l’installateur.

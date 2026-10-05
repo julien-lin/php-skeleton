@@ -502,12 +502,26 @@ SQL);
 
         $composer = json_decode((string) file_get_contents($this->projectDir . '/composer.json'), true, 512, JSON_THROW_ON_ERROR);
         self::assertSame('^1.0', $composer['require']['julienlinard/php-vision']);
+        self::assertSame('vcs', $composer['repositories'][0]['type']);
+        self::assertSame('https://github.com/julien-lin/php-vision', $composer['repositories'][0]['url']);
         self::assertArrayNotHasKey('julienlinard/doctrine-php', $composer['require']);
         self::assertArrayNotHasKey('julienlinard/php-api', $composer['require']);
         self::assertFileExists($this->projectDir . '/views/home/index.html.vis');
         self::assertFileDoesNotExist($this->projectDir . '/views/home/index.html.php');
         self::assertStringContainsString('{{ title }}', (string) file_get_contents($this->projectDir . '/views/home/index.html.vis'));
         self::assertStringNotContainsString('<?php', (string) file_get_contents($this->projectDir . '/views/_templates/_header.html.php'));
+
+        $this->runComposer($this->projectDir, 'install', '--no-dev', '--no-interaction', '--prefer-dist');
+        $this->runComposer($this->projectDir, 'audit', '--no-interaction');
+        file_put_contents(
+            $this->projectDir . '/.env',
+            str_replace('APP_DEBUG=1', 'APP_DEBUG=0', (string) file_get_contents($this->projectDir . '/.env'))
+        );
+
+        [$exitCode, $output, $errors] = $this->runGeneratedRequest('/');
+        self::assertSame(0, $exitCode, "Code de sortie Vision: {$exitCode}\nErreurs:\n{$errors}\nSortie:\n{$output}");
+        self::assertStringContainsString('Welcome', $output, $errors . "\nSortie:\n" . $output);
+        self::assertStringContainsString('PHP Vision', $output, $errors . "\nSortie:\n" . $output);
     }
 
     public function testGeneratedComposerCannotBeOverwrittenOnRerun(): void
