@@ -744,6 +744,9 @@ SQL);
         $exitCode = proc_close($process);
 
         self::assertSame(0, $exitCode, $output);
+        if (in_array('install', $arguments, true)) {
+            self::assertFileExists($workingDirectory . '/composer.lock', $output);
+        }
     }
 
     /**

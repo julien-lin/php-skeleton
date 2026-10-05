@@ -197,15 +197,15 @@ Le bootstrap charge l’environnement, la configuration, initialise logger, év�
 
 ## 5. Packaging et reproductibilité
 
-### 5.1 `composer.lock` désynchronisé — élevé
+### 5.1 `composer.lock` et reproductibilité — résolu
 
-`composer validate --strict` signale que le lock n’est pas à jour avec `composer.json`. Le repo source n’est donc pas reproductible au niveau attendu.
+`composer validate --strict --no-check-publish` et `composer install --dry-run --no-interaction --prefer-dist --no-dev` passent désormais sur le dépôt source. Les projets générés produisent également un `composer.lock` lors de leur installation, vérifié par la suite de génération.
 
-En mode local, `copyComposerJson()` écrase en plus le `composer.json` (`src/Installer.php:943-993`) sans régénérer proprement le lock. En mode Docker, `composer.lock` est supprimé par `cleanupRootFiles()`.
+L’installateur génère le `composer.json` du profil puis résout immédiatement ses dépendances, ce qui évite de conserver un lockfile provenant du skeleton source dans le projet cible.
 
-### 5.2 Contraintes générées trop larges — élevé
+### 5.2 Contraintes générées — résolu
 
-Le projet généré utilise `core-php: ^1.0` et `php-router: ^1.0` alors que le skeleton source déclare respectivement `^1.4` et `^1.2` (`src/Installer.php:948-953`). Le code généré peut donc être résolu avec des API anciennes incompatibles.
+Le projet généré utilise désormais `core-php: ^1.4` et `php-router: ^1.4`, alignés sur les API consommées par le skeleton.
 
 Le `composer.json` généré utilise désormais un nom Composer neutre `app/...` et contient une licence explicite.
 

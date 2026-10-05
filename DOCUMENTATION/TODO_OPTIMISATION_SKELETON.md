@@ -112,8 +112,8 @@ Cette checklist couvre l’optimisation de `php-skeleton`, de son installateur, 
 - [ ] Remplacer les contraintes trop larges par des contraintes de versions compatibles avec les bibliothèques locales.
 - [x] Fixer la version de PHPUnit sur une branche corrigée et compatible avec la version PHP supportée.
 - [x] Régénérer `composer.lock` après nettoyage des contraintes.
-- [ ] Vérifier que le lockfile correspond bien au `composer.json` source.
-- [ ] Vérifier que chaque projet généré obtient un lockfile cohérent.
+- [x] Vérifier que le lockfile correspond bien au `composer.json` source.
+- [x] Vérifier que chaque projet généré obtient un lockfile cohérent.
 - [ ] Refuser la génération si l’installation des dépendances échoue.
 - [ ] Ajouter une vérification CI contre les retours à des contraintes `*`.
 - [ ] Ajouter une vérification CI contre les versions majeures incompatibles entre bibliothèques internes.
