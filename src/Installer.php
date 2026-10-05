@@ -19,36 +19,31 @@ class Installer
         
         $installDoctrine = self::askQuestion('Voulez-vous installer Doctrine ? (y/N)', false);
         $installAuth = self::askQuestion('Voulez-vous installer Auth ? (y/N)', false);
+
+        // Auth repose sur Doctrine : empêcher la génération d'un bootstrap incohérent.
+        if ($installAuth) {
+            $installDoctrine = true;
+        }
         
         $baseDir = self::getProjectRoot();
         $wwwDir = $useDocker ? $baseDir . '/www' : $baseDir;
+
+        self::assertInstallTargetIsSkeleton($baseDir, $useDocker);
         
         if ($useDocker) {
             // Configurer l'environnement AVANT de créer docker-compose.yml
             // pour avoir les noms de conteneurs
-            self::configureEnv();
+            self::configureEnv($installDoctrine);
             self::setupDocker($installDoctrine, $installAuth);
         } else {
             self::setupLocal($installDoctrine, $installAuth);
         }
         
-        if ($installDoctrine) {
-            if ($useDocker) {
-                self::installPackageInDocker('julienlinard/doctrine-php', $wwwDir);
-            } else {
-                self::installPackage('julienlinard/doctrine-php', $baseDir);
-            }
-        }
-        
-        if ($installAuth) {
-            if ($useDocker) {
-                self::installPackageInDocker('julienlinard/auth-php', $wwwDir);
-            } else {
-                self::installPackage('julienlinard/auth-php', $baseDir);
-            }
-        }
-        
         self::copyComposerJson($baseDir, $wwwDir, $installDoctrine, $installAuth);
+
+        // Le composer.json généré contient déjà le profil choisi : une seule
+        // résolution évite les lockfiles intermédiaires et les incohérences.
+        self::installDependencies($wwwDir);
         
         // Régénérer l'autoloader après la création des fichiers
         self::regenerateAutoloader($wwwDir);
@@ -88,106 +83,149 @@ class Installer
     private static function installPackage(string $package, string $baseDir): void
     {
         echo "\n📦 Installation de {$package}...\n";
-        
-        $composerPath = self::findComposer();
-        if (!$composerPath) {
-            echo "❌ Erreur: Composer n'est pas disponible dans le PATH.\n";
-            echo "   Veuillez installer {$package} manuellement:\n";
-            echo "   composer require {$package}\n";
-            return;
-        }
-        
-        $command = 'cd ' . escapeshellarg($baseDir) . ' && ' . escapeshellarg($composerPath) . ' require ' . escapeshellarg($package) . ' --no-interaction';
-        $output = [];
-        $returnCode = 0;
-        
-        // ✅ PHASE 1.1: Utiliser safeExec au lieu de exec()
-        try {
-            self::safeExec($command, $output, $returnCode);
-        } catch (\RuntimeException $e) {
-            echo "❌ Erreur de sécurité: " . $e->getMessage() . "\n";
-            echo "   Veuillez installer {$package} manuellement: composer require {$package}\n";
-            return;
-        }
-        
+
+        self::assertPackageName($package);
+
+        [$output, $returnCode] = self::runComposer($baseDir, ['require', $package, '--no-interaction', '--prefer-dist']);
+
         if ($returnCode === 0) {
             echo "✅ {$package} installé avec succès.\n";
         } else {
-            echo "❌ Erreur lors de l'installation de {$package}.\n";
-            echo "   Sortie: " . implode("\n   ", $output) . "\n";
-            echo "   Veuillez installer manuellement: composer require {$package}\n";
+            throw new \RuntimeException(
+                "Échec de l'installation de {$package}:\n" . implode("\n", $output)
+            );
         }
     }
     
     private static function installPackageInDocker(string $package, string $wwwDir): void
     {
         echo "\n📦 Installation de {$package} dans www/...\n";
-        
+
         if (!is_dir($wwwDir)) {
-            echo "❌ Erreur: Le répertoire www/ n'existe pas.\n";
-            return;
+            throw new \RuntimeException("Le répertoire {$wwwDir} n'existe pas.");
         }
-        
-        $composerPath = self::findComposer();
-        if (!$composerPath) {
-            echo "⚠️  Composer n'est pas disponible. Installation à faire manuellement:\n";
-            echo "   cd www && composer require {$package}\n";
-            echo "   Ou après démarrage Docker: ccomposer require {$package}\n";
-            return;
-        }
-        
-        $command = 'cd ' . escapeshellarg($wwwDir) . ' && ' . escapeshellarg($composerPath) . ' require ' . escapeshellarg($package) . ' --no-interaction';
-        $output = [];
-        $returnCode = 0;
-        
-        // ✅ PHASE 1.1: Utiliser safeExec au lieu de exec()
-        try {
-            self::safeExec($command, $output, $returnCode);
-        } catch (\RuntimeException $e) {
-            echo "❌ Erreur de sécurité: " . $e->getMessage() . "\n";
-            echo "   Installation à faire manuellement: cd www && composer require {$package}\n";
-            return;
-        }
-        
+
+        self::assertPackageName($package);
+
+        [$output, $returnCode] = self::runComposer($wwwDir, ['require', $package, '--no-interaction', '--prefer-dist']);
+
         if ($returnCode === 0) {
             echo "✅ {$package} installé avec succès dans www/.\n";
         } else {
-            echo "⚠️  Installation échouée. À faire manuellement:\n";
-            echo "   cd www && composer require {$package}\n";
-            echo "   Ou après démarrage Docker: ccomposer require {$package}\n";
+            throw new \RuntimeException(
+                "Échec de l'installation de {$package} dans www/:\n" . implode("\n", $output)
+            );
         }
     }
     
     private static function regenerateAutoloader(string $targetDir): void
     {
         echo "\n🔄 Régénération de l'autoloader...\n";
-        
-        $composerPath = self::findComposer();
-        if (!$composerPath) {
-            echo "⚠️  Composer n'est pas disponible. Régénérez manuellement:\n";
-            echo "   cd " . basename($targetDir) . " && composer dump-autoload\n";
-            return;
-        }
-        
-        $command = 'cd ' . escapeshellarg($targetDir) . ' && ' . escapeshellarg($composerPath) . ' dump-autoload --no-interaction';
-        $output = [];
-        $returnCode = 0;
-        
-        // ✅ PHASE 1.1: Utiliser safeExec au lieu de exec()
-        // Note: safeExec() ajoute déjà '2>&1' lors de l'exécution
-        try {
-            self::safeExec($command, $output, $returnCode);
-        } catch (\RuntimeException $e) {
-            echo "❌ Erreur de sécurité: " . $e->getMessage() . "\n";
-            echo "   Régénérez manuellement: cd " . basename($targetDir) . " && composer dump-autoload\n";
-            return;
-        }
-        
+
+        [$output, $returnCode] = self::runComposer($targetDir, ['dump-autoload', '--no-interaction']);
+
         if ($returnCode === 0) {
             echo "✅ Autoloader régénéré avec succès.\n";
         } else {
-            echo "⚠️  Erreur lors de la régénération de l'autoloader.\n";
-            echo "   Régénérez manuellement: cd " . basename($targetDir) . " && composer dump-autoload\n";
+            throw new \RuntimeException(
+                "Échec de la régénération de l'autoloader:\n" . implode("\n", $output)
+            );
+        }
+    }
+
+    private static function installDependencies(string $targetDir): void
+    {
+        echo "\n📦 Installation des dépendances du profil...\n";
+
+        [$output, $returnCode] = self::runComposer(
+            $targetDir,
+            ['update', '--no-interaction', '--prefer-dist', '--no-dev']
+        );
+
+        if ($returnCode !== 0) {
+            throw new \RuntimeException(
+                "Échec de la résolution des dépendances:\n" . implode("\n", $output)
+            );
+        }
+
+        echo "✅ Dépendances installées et lockfile généré.\n";
+    }
+
+    private static function assertInstallTargetIsSkeleton(string $baseDir, bool $useDocker): void
+    {
+        $sourceComposerPath = $baseDir . '/composer.json';
+        if (!is_file($sourceComposerPath)) {
+            throw new \RuntimeException("composer.json introuvable dans le répertoire source.");
+        }
+
+        $sourceComposer = json_decode((string) file_get_contents($sourceComposerPath), true);
+        if (!is_array($sourceComposer) || ($sourceComposer['name'] ?? null) !== 'julienlinard/php-skeleton') {
+            throw new \RuntimeException(
+                "Ce répertoire semble déjà contenir une application générée. " .
+                "L'installation est interrompue pour protéger ses fichiers."
+            );
+        }
+
+        if ($useDocker && is_file($baseDir . '/www/composer.json')) {
+            throw new \RuntimeException(
+                "Le répertoire www/ contient déjà un projet généré. " .
+                "L'installation est interrompue pour protéger ses fichiers."
+            );
+        }
+    }
+
+    /**
+     * Exécute Composer sans passer par un shell.
+     * Les arguments sont transmis sous forme de tableau afin d'éviter toute
+     * interpolation de chemin ou d'argument dans une commande shell.
+     *
+     * @return array{0: array<int, string>, 1: int} Sortie et code retour
+     */
+    private static function runComposer(string $workingDirectory, array $arguments): array
+    {
+        if (!is_dir($workingDirectory)) {
+            throw new \RuntimeException("Répertoire de travail introuvable: {$workingDirectory}");
+        }
+
+        $composerPath = self::findComposer();
+        if ($composerPath === null) {
+            throw new \RuntimeException(
+                "Composer est requis pour terminer l'installation. " .
+                "Installez Composer puis relancez l'installateur."
+            );
+        }
+
+        $command = array_merge([$composerPath], array_values($arguments));
+        $descriptorSpec = [
+            0 => ['pipe', 'r'],
+            1 => ['pipe', 'w'],
+            2 => ['pipe', 'w'],
+        ];
+
+        $process = proc_open($command, $descriptorSpec, $pipes, $workingDirectory, null, ['bypass_shell' => true]);
+        if (!is_resource($process)) {
+            throw new \RuntimeException("Impossible de démarrer Composer.");
+        }
+
+        fclose($pipes[0]);
+        $stdout = stream_get_contents($pipes[1]);
+        $stderr = stream_get_contents($pipes[2]);
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+
+        $returnCode = proc_close($process);
+        $output = array_values(array_filter(
+            preg_split('/\R/', trim((string)$stdout . "\n" . (string)$stderr)) ?: [],
+            static fn(string $line): bool => $line !== ''
+        ));
+
+        return [$output, $returnCode];
+    }
+
+    private static function assertPackageName(string $package): void
+    {
+        if (!preg_match('/^[a-z0-9][a-z0-9_.-]*\/[a-z0-9][a-z0-9_.-]*$/i', $package)) {
+            throw new \RuntimeException("Commande non autorisée: package {$package}");
         }
     }
     
@@ -373,7 +411,7 @@ class Installer
         $baseDir = self::getProjectRoot();
         
         self::createWwwStructure($baseDir, $installDoctrine, $installAuth);
-        self::createDockerFiles($baseDir);
+        self::createDockerFiles($baseDir, $installDoctrine);
         
         echo "✅ Fichiers Docker créés.\n";
     }
@@ -413,7 +451,10 @@ class Installer
         self::createFooterTemplate($templatesDir);
         self::createHomeView($homeDir);
         self::createWwwDirectories($wwwDir);
-        self::createConfigDatabase($wwwDir);
+        self::createConfigDatabase($wwwDir, $installDoctrine);
+        if ($installAuth) {
+            self::createAuthFiles($wwwDir);
+        }
         self::createBootstrapServices($wwwDir);
         self::createPublicIndex($publicDir, $installDoctrine, $installAuth);
         self::createWwwGitignore($wwwDir);
@@ -442,25 +483,15 @@ class Installer
     
     private static function cleanupRootFiles(string $baseDir): void
     {
-        // Supprimer les dossiers et fichiers qui ont été déplacés ou qui ne doivent pas être dans le skeleton généré
+        // Ne supprimer que les éléments explicitement déplacés ou recréés dans
+        // www/. La licence, la documentation, le lockfile et les fichiers
+        // utilisateur doivent rester récupérables à la racine.
         $filesToRemove = [
-            'public', 
-            'src', 
-            'templates',  // Dossier inutilisé (on utilise views/_templates)
-            'config', 
-            'vendor', 
-            'composer.lock',
-            // Fichiers du skeleton source qui ne doivent pas être dans le projet généré
-            'LICENSE',
-            'README.md',
-            'README.fr.md',
-            'composer.json',  // Le composer.json du skeleton source, pas celui généré
-            // ✅ PHASE 2.1: Exclure les fichiers de tests du skeleton généré
-            'tests',
-            'phpunit.xml',
-            '.phpunit.cache',
-            'coverage',
-            'CHANGELOG.md'
+            'public',
+            'src',
+            'templates',
+            'config',
+            'vendor',
         ];
         
         foreach ($filesToRemove as $item) {
@@ -846,8 +877,12 @@ PHP;
         file_put_contents($serviceDir . '/BootstrapService.php', $content);
     }
     
-    private static function createConfigDatabase(string $wwwDir): void
+    private static function createConfigDatabase(string $wwwDir, bool $enabled): void
     {
+        if (!$enabled) {
+            return;
+        }
+
         $configDir = $wwwDir . '/config';
         if (!is_dir($configDir)) {
             mkdir($configDir, 0755, true);
@@ -904,28 +939,31 @@ $getEnv = function(string $key, ?string $default = null) use ($defaults): string
     return $value;
 };
 
-// Variables sensibles : DOIVENT être définies dans .env (pas de valeur par défaut)
-$dbName = $getEnv('MYSQL_DATABASE');
-$dbUser = $getEnv('MYSQL_USER');
-$dbPassword = $getEnv('MYSQL_PASSWORD');
+// Les variables DB_* sont prioritaires pour le local. Les variables MYSQL_*
+// restent acceptées pour conserver la compatibilité avec Docker.
+$getFirstEnv = function(array $keys, ?string $default = null) use ($getEnv): string {
+    foreach ($keys as $key) {
+        $value = getenv($key);
+        if ($value !== false && $value !== '') {
+            return (string) $value;
+        }
+    }
 
-// Variables non sensibles : peuvent avoir des valeurs par défaut
-// IMPORTANT : Dans Docker, le host doit être le nom du SERVICE Docker
-// Le nom du service correspond au nom du conteneur configuré (MARIADB_CONTAINER)
-$dbHost = $getEnv('MARIADB_CONTAINER', 'mariadb_app');
-$dbPort = $getEnv('MARIADB_PORT', '3306');
+    return $getEnv($keys[0], $default);
+};
+
+// Variables sensibles : DOIVENT être définies dans .env (pas de valeur par défaut)
+$dbName = $getFirstEnv(['DB_NAME', 'MYSQL_DATABASE']);
+$dbUser = $getFirstEnv(['DB_USER', 'MYSQL_USER']);
+$dbPassword = $getFirstEnv(['DB_PASS', 'MYSQL_PASSWORD']);
+
+// Variables non sensibles : peuvent avoir des valeurs par défaut.
+$dbHost = $getFirstEnv(['DB_HOST', 'MARIADB_CONTAINER'], 'mariadb_app');
+$dbPort = $getFirstEnv(['DB_PORT', 'MARIADB_PORT'], '3306');
 
 // Convertir le port en int si c'est une string
 $dbPort = is_numeric($dbPort) ? (int)$dbPort : 3306;
 
-// Validation : s'assurer que le host n'est pas localhost en Docker
-// (cela ne fonctionnerait pas car chaque container a son propre localhost)
-if ($dbHost === 'localhost' || $dbHost === '127.0.0.1') {
-    throw new \RuntimeException(
-        "Le host de la base de données ne peut pas être 'localhost' ou '127.0.0.1' dans Docker. " .
-        "Utilisez le nom du service Docker (qui correspond à MARIADB_CONTAINER) ou définissez MARIADB_CONTAINER dans votre .env"
-    );
-}
 return [
     'driver' => 'mysql',
     'host' => $dbHost,
@@ -942,22 +980,35 @@ PHP;
     
     private static function copyComposerJson(string $baseDir, string $targetDir, bool $hasDoctrine, bool $hasAuth): void
     {
+        if ($hasAuth) {
+            $hasDoctrine = true;
+        }
+
         $projectName = basename($baseDir);
         $targetComposer = $targetDir . '/composer.json';
+
+        if (is_file($targetComposer)) {
+            $existing = json_decode((string) file_get_contents($targetComposer), true);
+            if (!is_array($existing) || ($existing['name'] ?? null) !== 'julienlinard/php-skeleton') {
+                throw new \RuntimeException(
+                    "Le fichier {$targetComposer} existe déjà et ne correspond pas au skeleton source."
+                );
+            }
+        }
         
         $require = [
             'php' => '^8.1',
-            'julienlinard/core-php' => '^1.0',
-            'julienlinard/php-router' => '^1.0',
-            'julienlinard/php-validator' => '^1.0'
+            'julienlinard/core-php' => '^1.4',
+            'julienlinard/php-router' => '^1.4'
         ];
         
         if ($hasDoctrine) {
-            $require['julienlinard/doctrine-php'] = '^1.1';
+            $require['julienlinard/doctrine-php'] = '^1.2';
+            $require['ext-pdo'] = '*';
         }
         
         if ($hasAuth) {
-            $require['julienlinard/auth-php'] = '^1.0';
+            $require['julienlinard/auth-php'] = '^1.3';
         }
         
         // Normaliser le nom du projet (minuscules, remplacer espaces et caractères spéciaux par des tirets)
@@ -968,12 +1019,15 @@ PHP;
             'name' => 'your-vendor/' . $normalizedName,
             'description' => 'PHP application built with JulienLinard PHP Framework',
             'type' => 'project',
+            'license' => 'MIT',
             'require' => $require,
             'autoload' => [
                 'psr-4' => [
                     'App\\' => 'src/'
                 ]
-            ]
+            ],
+            'minimum-stability' => 'stable',
+            'prefer-stable' => true
         ];
         
         // Ajouter les scripts Composer pour doctrine-php si installé
@@ -1081,13 +1135,244 @@ PHP;
         self::createFooterTemplate($templatesDir);
         self::createHomeView($homeDir);
         self::createLocalDirectories($baseDir);
-        self::createConfigDatabase($baseDir);
+        self::createConfigDatabase($baseDir, $installDoctrine);
+        if ($installAuth) {
+            self::createAuthFiles($baseDir);
+        }
+        self::createLocalEnvFiles($baseDir, $installDoctrine);
         self::createBootstrapServices($baseDir);
         self::createWwwGitignore($baseDir);
         
         self::createPublicIndex($publicDir, $installDoctrine, $installAuth);
         
         echo "✅ Structure locale créée.\n";
+    }
+
+    private static function createAuthFiles(string $baseDir): void
+    {
+        $entityDir = $baseDir . '/src/Entity';
+        $migrationDir = $baseDir . '/migrations';
+
+        if (!is_dir($entityDir) && !mkdir($entityDir, 0755, true) && !is_dir($entityDir)) {
+            throw new \RuntimeException("Impossible de créer {$entityDir}.");
+        }
+        if (!is_dir($migrationDir) && !mkdir($migrationDir, 0755, true) && !is_dir($migrationDir)) {
+            throw new \RuntimeException("Impossible de créer {$migrationDir}.");
+        }
+
+        $userEntity = <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+namespace App\Entity;
+
+use JulienLinard\Auth\Models\UserInterface;
+use JulienLinard\Doctrine\Mapping\Column;
+use JulienLinard\Doctrine\Mapping\Entity;
+use JulienLinard\Doctrine\Mapping\Id;
+use JulienLinard\Doctrine\Mapping\Index;
+
+#[Entity(table: 'users')]
+class User implements UserInterface
+{
+    #[Id]
+    #[Column(type: 'integer', autoIncrement: true)]
+    private ?int $id = null;
+
+    #[Column(type: 'string', length: 255)]
+    #[Index(name: 'idx_users_email', unique: true)]
+    private string $email;
+
+    #[Column(type: 'string', length: 255)]
+    private string $password;
+
+    #[Column(type: 'string', length: 255, default: 'user')]
+    private string $roles = 'user';
+
+    #[Column(type: 'string', length: 1000, nullable: true)]
+    private ?string $permissions = null;
+
+    #[Column(type: 'datetime', nullable: true, name: 'created_at')]
+    private ?\DateTime $createdAt = null;
+
+    public function __construct(?string $email = null, ?string $password = null)
+    {
+        // Doctrine hydrate les entités via un constructeur sans argument.
+        $this->email = $email ?? '';
+        $this->password = $password ?? '';
+        $this->createdAt = new \DateTime();
+    }
+
+    public function getId(): ?int
+    {
+        return $this->id;
+    }
+
+    public function getEmail(): string
+    {
+        return $this->email;
+    }
+
+    public function setEmail(string $email): self
+    {
+        $this->email = $email;
+        return $this;
+    }
+
+    public function getPassword(): string
+    {
+        return $this->password;
+    }
+
+    public function setPassword(string $password): self
+    {
+        $this->password = $password;
+        return $this;
+    }
+
+    public function getAuthIdentifier(): int|string
+    {
+        if ($this->id === null) {
+            throw new \LogicException('Un utilisateur doit être persisté avant d’être authentifié.');
+        }
+
+        return $this->id;
+    }
+
+    public function getAuthPassword(): string
+    {
+        return $this->password;
+    }
+
+    public function getAuthRoles(): array|string
+    {
+        return array_values(array_filter(array_map('trim', explode(',', $this->roles))));
+    }
+
+    public function getAuthPermissions(): array
+    {
+        if ($this->permissions === null || $this->permissions === '') {
+            return [];
+        }
+
+        return array_values(array_filter(array_map('trim', explode(',', $this->permissions))));
+    }
+
+    public function hasRole(string $role): bool
+    {
+        return in_array($role, (array) $this->getAuthRoles(), true);
+    }
+
+    public function hasPermission(string $permission): bool
+    {
+        return in_array($permission, $this->getAuthPermissions(), true);
+    }
+}
+PHP;
+
+        self::writeGeneratedFile($entityDir . '/User.php', $userEntity);
+
+        $usersMigration = <<<'SQL'
+-- Migration initiale du profil Auth.
+CREATE TABLE IF NOT EXISTS `users` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `email` VARCHAR(255) NOT NULL,
+    `password` VARCHAR(255) NOT NULL,
+    `roles` VARCHAR(255) NOT NULL DEFAULT 'user',
+    `permissions` VARCHAR(1000) NULL,
+    `created_at` DATETIME NULL,
+    UNIQUE KEY `idx_users_email` (`email`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+SQL;
+
+        self::writeGeneratedFile($migrationDir . '/20261005_create_users.sql', $usersMigration);
+
+        $rememberTokensMigration = <<<'SQL'
+-- Migration nécessaire à la fonctionnalité "Remember Me".
+CREATE TABLE IF NOT EXISTS `remember_tokens` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `user_id` INT NOT NULL,
+    `token` VARCHAR(255) NOT NULL UNIQUE,
+    `expires_at` DATETIME NOT NULL,
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX `idx_remember_user_id` (`user_id`),
+    INDEX `idx_remember_expires_at` (`expires_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+SQL;
+
+        self::writeGeneratedFile($migrationDir . '/20261005_create_remember_tokens.sql', $rememberTokensMigration);
+    }
+
+    private static function writeGeneratedFile(string $path, string $content): void
+    {
+        if (file_exists($path)) {
+            return;
+        }
+
+        if (file_put_contents($path, $content) === false) {
+            throw new \RuntimeException("Impossible d'écrire le fichier généré {$path}.");
+        }
+    }
+
+    /**
+     * Prépare la configuration locale minimale. Le profil de base doit pouvoir
+     * démarrer sans base de données, tandis que le profil Doctrine reçoit des
+     * variables DB explicites à compléter par le développeur.
+     */
+    private static function createLocalEnvFiles(string $baseDir, bool $hasDoctrine): void
+    {
+        $envExample = <<<'ENV'
+APP_NAME=My PHP Application
+APP_ENV=local
+APP_DEBUG=1
+APP_LOCALE=fr
+APP_SECRET=
+ENV;
+
+        $env = "APP_NAME=My PHP Application\n";
+        $env .= "APP_ENV=local\n";
+        $env .= "APP_DEBUG=1\n";
+        $env .= "APP_LOCALE=fr\n";
+        $env .= 'APP_SECRET=' . bin2hex(random_bytes(32)) . "\n";
+
+        if ($hasDoctrine) {
+            $envExample .= <<<'ENV'
+
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_NAME=app_db
+DB_USER=app_user
+DB_PASS=change-me
+ENV;
+
+            $env .= <<<'ENV'
+
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_NAME=app_db
+DB_USER=app_user
+DB_PASS=change-me
+ENV;
+        }
+
+        $envPath = $baseDir . '/.env';
+        if (!file_exists($envPath)) {
+            if (file_put_contents($envPath, $env) === false) {
+                throw new \RuntimeException("Impossible d'écrire {$envPath}.");
+            }
+        }
+
+        $envExamplePath = $baseDir . '/.env.example';
+        $existingExample = is_file($envExamplePath) ? file_get_contents($envExamplePath) : false;
+        $isSourceDockerExample = is_string($existingExample)
+            && str_contains($existingExample, '# Configuration Docker');
+
+        if (!is_file($envExamplePath) || $isSourceDockerExample) {
+            if (file_put_contents($envExamplePath, $envExample . "\n") === false) {
+                throw new \RuntimeException("Impossible d'écrire {$envExamplePath}.");
+            }
+        }
     }
     
     private static function createLocalDirectories(string $baseDir): void
@@ -1123,7 +1408,7 @@ PHP;
         self::fixPermissions($baseDir, false);
     }
     
-    private static function configureEnv(): void
+    private static function configureEnv(bool $hasDatabase): void
     {
         echo "\n⚙️  Configuration de l'environnement (.env)...\n";
         
@@ -1131,22 +1416,30 @@ PHP;
         
         $envData['APACHE_CONTAINER'] = self::askInput('Nom du container Apache', 'apache_app');
         $envData['APACHE_PORT'] = self::askInput('Port Apache', '80');
-        $envData['MARIADB_CONTAINER'] = self::askInput('Nom du container MariaDB', 'mariadb_app');
-        $envData['MARIADB_PORT'] = self::askInput('Port MariaDB', '3306');
-        $envData['MYSQL_ROOT_PASSWORD'] = self::askInput('Mot de passe root MariaDB', 'root');
-        $envData['MYSQL_DATABASE'] = self::askInput('Nom de la base de données', 'app_db');
-        $envData['MYSQL_USER'] = self::askInput('Utilisateur MariaDB', 'app_user');
-        $envData['MYSQL_PASSWORD'] = self::askInput('Mot de passe utilisateur MariaDB', 'app_password');
+        if ($hasDatabase) {
+            $envData['MARIADB_CONTAINER'] = self::askInput('Nom du container MariaDB', 'mariadb_app');
+            $envData['MARIADB_PORT'] = self::askInput('Port MariaDB', '3306');
+            $envData['MYSQL_ROOT_PASSWORD'] = self::askInput(
+                'Mot de passe root MariaDB',
+                bin2hex(random_bytes(16))
+            );
+            $envData['MYSQL_DATABASE'] = self::askInput('Nom de la base de données', 'app_db');
+            $envData['MYSQL_USER'] = self::askInput('Utilisateur MariaDB', 'app_user');
+            $envData['MYSQL_PASSWORD'] = self::askInput(
+                'Mot de passe utilisateur MariaDB',
+                bin2hex(random_bytes(16))
+            );
+        }
         $envData['PHP_ERROR_REPORTING'] = self::askInput('PHP Error Reporting (E_ALL)', 'E_ALL');
-        $envData['PHP_DISPLAY_ERRORS'] = self::askInput('PHP Display Errors (On/Off)', 'On');
+        $envData['PHP_DISPLAY_ERRORS'] = self::askInput('PHP Display Errors (On/Off)', 'Off');
         
         // Stocker les noms de conteneurs pour les utiliser dans docker-compose.yml
-        self::$containerNames = [
-            'apache' => $envData['APACHE_CONTAINER'],
-            'mariadb' => $envData['MARIADB_CONTAINER']
-        ];
+        self::$containerNames = ['apache' => $envData['APACHE_CONTAINER']];
+        if ($hasDatabase) {
+            self::$containerNames['mariadb'] = $envData['MARIADB_CONTAINER'];
+        }
         
-        self::createEnvFile($envData);
+        self::createEnvFile($envData, $hasDatabase);
         
         echo "✅ Fichier .env créé.\n";
     }
@@ -1167,7 +1460,7 @@ PHP;
         return empty($answer) ? $default : $answer;
     }
     
-    private static function createEnvFile(array $data): void
+    private static function createEnvFile(array $data, bool $hasDatabase): void
     {
         $baseDir = self::getProjectRoot();
         $envPath = $baseDir . '/.env';
@@ -1186,10 +1479,12 @@ PHP;
         // Créer le .env dans www/ (pour l'application)
         $wwwContent = "# Configuration Application\n";
         $wwwContent .= "# Généré automatiquement par l'installateur\n\n";
-        $wwwContent .= "MARIADB_CONTAINER={$data['MARIADB_CONTAINER']}\n";
-        $wwwContent .= "MYSQL_DATABASE={$data['MYSQL_DATABASE']}\n";
-        $wwwContent .= "MYSQL_USER={$data['MYSQL_USER']}\n";
-        $wwwContent .= "MYSQL_PASSWORD={$data['MYSQL_PASSWORD']}\n";
+        if ($hasDatabase) {
+            $wwwContent .= "MARIADB_CONTAINER={$data['MARIADB_CONTAINER']}\n";
+            $wwwContent .= "MYSQL_DATABASE={$data['MYSQL_DATABASE']}\n";
+            $wwwContent .= "MYSQL_USER={$data['MYSQL_USER']}\n";
+            $wwwContent .= "MYSQL_PASSWORD={$data['MYSQL_PASSWORD']}\n";
+        }
         $wwwContent .= "PHP_ERROR_REPORTING={$data['PHP_ERROR_REPORTING']}\n";
         $wwwContent .= "PHP_DISPLAY_ERRORS={$data['PHP_DISPLAY_ERRORS']}\n";
         $wwwContent .= "\n";
@@ -1207,15 +1502,14 @@ PHP;
         file_put_contents($wwwEnvPath, $wwwContent);
         
         // Créer le fichier .env.example
-        self::createEnvExample($baseDir, $wwwDir);
+        self::createEnvExample($baseDir, $wwwDir, $hasDatabase);
     }
     
-    private static function createEnvExample(string $baseDir, string $wwwDir): void
+    private static function createEnvExample(string $baseDir, string $wwwDir, bool $hasDatabase): void
     {
         $envExamplePath = $baseDir . '/.env.example';
         $wwwEnvExamplePath = $wwwDir . '/.env.example';
-        
-        // .env.example à la racine (pour Docker)
+
         $rootContent = <<<'ENV'
 # ============================================
 # CONFIGURATION DOCKER COMPOSE
@@ -1230,19 +1524,24 @@ PHP;
 
 APACHE_CONTAINER=apache_app
 APACHE_PORT=80
+PHP_ERROR_REPORTING=E_ALL
+PHP_DISPLAY_ERRORS=Off
+ENV;
+
+        if ($hasDatabase) {
+            $rootContent .= <<<'ENV'
+
 MARIADB_CONTAINER=mariadb_app
 MARIADB_PORT=3306
-MYSQL_ROOT_PASSWORD=root
+MYSQL_ROOT_PASSWORD=change-me
 MYSQL_DATABASE=app_db
 MYSQL_USER=app_user
-MYSQL_PASSWORD=app_password
-PHP_ERROR_REPORTING=E_ALL
-PHP_DISPLAY_ERRORS=On
+MYSQL_PASSWORD=change-me
 ENV;
-        
+        }
+
         file_put_contents($envExamplePath, $rootContent);
-        
-        // .env.example dans www/ (pour l'application)
+
         $wwwContent = <<<'ENV'
 # ============================================
 # CONFIGURATION APPLICATION PHP
@@ -1250,24 +1549,29 @@ ENV;
 # Ce fichier configure l'application PHP qui tourne DANS le container
 #
 # IMPORTANT : Les ports ici sont les ports INTERNES du réseau Docker
-# - MARIADB_CONTAINER : Nom du service Docker (pour la connexion interne)
-# - Le port MariaDB est toujours 3306 (port interne du container)
-# - Host = nom du service Docker (mariadb_app) pour la connexion interne
 #
 # Copiez ce fichier en .env et modifiez les valeurs selon vos besoins
 
+PHP_ERROR_REPORTING=E_ALL
+PHP_DISPLAY_ERRORS=Off
+
+ENV;
+
+        if ($hasDatabase) {
+            $wwwContent .= <<<'ENV'
 # ============================================
 # Configuration Base de données
 # ============================================
-# Ces variables sont utilisées par l'application PHP pour se connecter à MariaDB
-# depuis l'intérieur du réseau Docker
+# Host = nom du service Docker pour la connexion interne
 MARIADB_CONTAINER=mariadb_app
 MYSQL_DATABASE=app_db
 MYSQL_USER=app_user
-MYSQL_PASSWORD=app_password
-PHP_ERROR_REPORTING=E_ALL
-PHP_DISPLAY_ERRORS=On
+MYSQL_PASSWORD=change-me
 
+ENV;
+        }
+
+        $wwwContent .= <<<'ENV'
 # ============================================
 # Configuration Application
 # ============================================
@@ -1292,53 +1596,35 @@ ENV;
         file_put_contents($wwwEnvExamplePath, $wwwContent);
     }
     
-    private static function createDockerFiles(string $baseDir): void
+    private static function createDockerFiles(string $baseDir, bool $hasDatabase): void
     {
-        self::createDockerCompose($baseDir);
+        self::createDockerCompose($baseDir, $hasDatabase);
         self::createDockerfile($baseDir);
         self::createCustomPhpIni($baseDir);
         self::createAliases($baseDir);
         self::createDockerignore($baseDir);
     }
     
-    private static function createDockerCompose(string $baseDir): void
+    private static function createDockerCompose(string $baseDir, bool $hasDatabase): void
     {
-        // Utiliser les noms de conteneurs configurés (ou valeurs par défaut)
         $apacheService = self::$containerNames['apache'] ?? 'apache_app';
         $mariadbService = self::$containerNames['mariadb'] ?? 'mariadb_app';
-        
-        // Valider que les noms sont valides pour Docker Compose (lettres, chiffres, underscore, tiret)
+
         $apacheService = preg_replace('/[^a-z0-9_-]/', '_', strtolower($apacheService));
         $mariadbService = preg_replace('/[^a-z0-9_-]/', '_', strtolower($mariadbService));
-        
-        $content = <<<YAML
-services:
-  {$apacheService}:
-    build: apache
-    container_name: \${APACHE_CONTAINER:-{$apacheService}}
-    restart: unless-stopped
-    ports:
-      - "\${APACHE_PORT:-80}:80"
-    volumes:
-      - ./www:/var/www/html
-      - ./apache/custom-php.ini:/usr/local/etc/php/conf.d/custom-php.ini
-    environment:
-      - PHP_ERROR_REPORTING=\${PHP_ERROR_REPORTING:-E_ALL}
-      - PHP_DISPLAY_ERRORS=\${PHP_DISPLAY_ERRORS:-On}
-    networks:
-      - app_network
+
+        $dependsOn = '';
+        $databaseService = '';
+        $volumes = '';
+
+        if ($hasDatabase) {
+            $dependsOn = <<<YAML
     depends_on:
       {$mariadbService}:
         condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-    mem_limit: 512m
-    mem_reservation: 256m
-    cpus: 2.0
+YAML;
+
+            $databaseService = <<<YAML
 
   {$mariadbService}:
     image: mariadb:11.3
@@ -1347,11 +1633,10 @@ services:
     ports:
       - "\${MARIADB_PORT:-3306}:3306"
     environment:
-      - MYSQL_ROOT_PASSWORD=\${MYSQL_ROOT_PASSWORD:-root}
-      - MYSQL_DATABASE=\${MYSQL_DATABASE:-app_db}
-      - MYSQL_USER=\${MYSQL_USER:-app_user}
-      - MYSQL_PASSWORD=\${MYSQL_PASSWORD:-app_password}
-      - MYSQL_ROOT_HOST=\${MYSQL_ROOT_HOST:-%}
+      - MYSQL_ROOT_PASSWORD=\${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD doit être défini}
+      - MYSQL_DATABASE=\${MYSQL_DATABASE:?MYSQL_DATABASE doit être défini}
+      - MYSQL_USER=\${MYSQL_USER:?MYSQL_USER doit être défini}
+      - MYSQL_PASSWORD=\${MYSQL_PASSWORD:?MYSQL_PASSWORD doit être défini}
     volumes:
       - mysql:/var/lib/mysql
       - ./db:/docker-entrypoint-initdb.d
@@ -1366,15 +1651,49 @@ services:
     mem_limit: 1g
     mem_reservation: 512m
     cpus: 2.0
+YAML;
 
-networks:
-  app_network:
-    driver: bridge
+            $volumes = <<<'YAML'
 
 volumes:
   mysql:
 YAML;
-        
+        }
+
+        $content = <<<YAML
+services:
+  {$apacheService}:
+    build: apache
+    container_name: \${APACHE_CONTAINER:-{$apacheService}}
+    restart: unless-stopped
+    ports:
+      - "\${APACHE_PORT:-80}:80"
+    volumes:
+      - ./www:/var/www/html
+      - ./apache/custom-php.ini:/usr/local/etc/php/conf.d/custom-php.ini
+    environment:
+      - PHP_ERROR_REPORTING=\${PHP_ERROR_REPORTING:-E_ALL}
+      - PHP_DISPLAY_ERRORS=\${PHP_DISPLAY_ERRORS:-Off}
+    networks:
+      - app_network
+{$dependsOn}
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    mem_limit: 512m
+    mem_reservation: 256m
+    cpus: 2.0
+{$databaseService}
+
+networks:
+  app_network:
+    driver: bridge
+{$volumes}
+YAML;
+
         file_put_contents($baseDir . '/docker-compose.yml', $content);
     }
     
@@ -1400,30 +1719,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   && rm -rf /var/lib/apt/lists/*
 
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
-  && docker-php-ext-install -j$(nproc) gd intl mysqli pdo pdo_mysql
+  && docker-php-ext-install -j$(nproc) gd intl mysqli opcache pdo pdo_mysql
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 RUN sed -i 's|/var/www/html|/var/www/html/public|g' /etc/apache2/sites-available/000-default.conf \
-  && echo "<Directory /var/www/html/public>\n\
+  && echo "ServerName localhost\n\
+<Directory /var/www/html/public>\n\
   AllowOverride All\n\
   Require all granted\n\
   </Directory>" >> /etc/apache2/apache2.conf \
   && a2enmod rewrite
 
 COPY custom-php.ini /usr/local/etc/php/conf.d/
-
-RUN pecl install xdebug \
-  && docker-php-ext-enable xdebug \
-  && rm -rf /tmp/pear
-
-ENV NVM_DIR=/root/.nvm
-ENV NODE_VERSION=20
-ENV PATH=$NVM_DIR/versions/node/v$NODE_VERSION/bin:$PATH
-
-RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash \
-  && /bin/bash -c "source $NVM_DIR/nvm.sh && nvm install $NODE_VERSION && nvm alias default $NODE_VERSION && nvm use default" \
-  && rm -rf /tmp/*
 
 RUN chown -R www-data:www-data /var/www/html
 
@@ -1450,12 +1758,6 @@ post_max_size = 100M
 memory_limit = 256M
 max_execution_time = 300
 max_input_time = 300
-
-xdebug.mode = develop,debug
-xdebug.max_nesting_level = 256
-xdebug.show_exception_trace = 0
-xdebug.collect_params = 0
-xdebug.log = /tmp/xdebug.log
 
 date.timezone = Europe/Paris
 INI;
@@ -1526,11 +1828,129 @@ class HomeController extends Controller
             'message' => 'Hello World!'
         ]);
     }
+
+    #[Route(path: '/health', methods: ['GET'], name: 'health')]
+    public function health(): Response
+    {
+        return $this->json([
+            'status' => 'ok',
+            'framework' => 'php-skeleton'
+        ]);
+    }
 }
 PHP;
         
         file_put_contents($publicDir . '/index.php', $indexContent);
         file_put_contents($controllerDir . '/HomeController.php', $controllerContent);
+
+        if ($hasAuth) {
+            self::createAuthController($controllerDir);
+        }
+    }
+
+    private static function createAuthController(string $controllerDir): void
+    {
+        $content = <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+namespace App\Controller;
+
+use JulienLinard\Auth\AuthManager;
+use JulienLinard\Auth\Middleware\AuthMiddleware;
+use JulienLinard\Core\Middleware\CsrfMiddleware;
+use JulienLinard\Router\Attributes\Route;
+use JulienLinard\Router\Request;
+use JulienLinard\Router\Response;
+
+/**
+ * Exemple minimal d'authentification par session.
+ *
+ * Les utilisateurs doivent être créés après exécution des migrations.
+ */
+final class AuthController
+{
+    public function __construct(private AuthManager $auth)
+    {
+    }
+
+    #[Route(path: '/login', methods: ['GET'], name: 'auth.login.form')]
+    public function loginForm(): Response
+    {
+        $csrfField = CsrfMiddleware::field();
+        $html = <<<HTML
+<!doctype html>
+<html lang="fr">
+<head><meta charset="utf-8"><title>Connexion</title></head>
+<body>
+    <main>
+        <h1>Connexion</h1>
+        <form method="post" action="/login">
+            {$csrfField}
+            <label>Email <input type="email" name="email" required></label>
+            <label>Mot de passe <input type="password" name="password" required></label>
+            <button type="submit">Se connecter</button>
+        </form>
+    </main>
+</body>
+</html>
+HTML;
+
+        return new Response(200, $html);
+    }
+
+    #[Route(path: '/login', methods: ['POST'], name: 'auth.login')]
+    public function login(Request $request): Response
+    {
+        $email = trim((string) $request->getBodyParam('email', ''));
+        $password = (string) $request->getBodyParam('password', '');
+
+        if ($email === '' || $password === '') {
+            return Response::json([
+                'error' => 'invalid_credentials',
+                'message' => 'Email et mot de passe requis.'
+            ], 422);
+        }
+
+        if (!$this->auth->attempt(['email' => $email, 'password' => $password])) {
+            return Response::json([
+                'error' => 'invalid_credentials',
+                'message' => 'Identifiants invalides.'
+            ], 401);
+        }
+
+        return Response::json(['status' => 'authenticated']);
+    }
+
+    #[Route(path: '/logout', methods: ['POST'], name: 'auth.logout')]
+    public function logout(): Response
+    {
+        $this->auth->logout();
+
+        return Response::json(['status' => 'logged_out']);
+    }
+
+    #[Route(
+        path: '/account',
+        methods: ['GET'],
+        name: 'auth.account',
+        middleware: [new AuthMiddleware()]
+    )]
+    public function account(): Response
+    {
+        $user = $this->auth->user();
+
+        return Response::json([
+            'id' => $user?->getAuthIdentifier(),
+            'email' => method_exists($user, 'getEmail') ? $user->getEmail() : null,
+            'roles' => $user?->getAuthRoles(),
+        ]);
+    }
+}
+PHP;
+
+        self::writeGeneratedFile($controllerDir . '/AuthController.php', $content);
     }
     
     private static function generateIndexContent(bool $hasDoctrine, bool $hasAuth): string
@@ -1557,8 +1977,8 @@ require_once dirname(__DIR__) . '/vendor/autoload.php';
 
 use JulienLinard\Core\Application;
 use JulienLinard\Core\Middleware\CsrfMiddleware;
-use JulienLinard\Validator\Validator as PhpValidator;
 use JulienLinard\Core\Form\Validator as CoreValidator;
+use JulienLinard\Core\View\View;
 use App\Controller\HomeController;
 use App\Service\EnvValidator;
 use App\Service\EventListenerService;
@@ -1642,6 +2062,18 @@ EnvValidator::validate();
 // En production : masquer les erreurs pour la sécurité
 $debug = BootstrapService::configureDebug($app);
 $viewsPath = dirname(__DIR__) . '/views';
+
+// Le cache de vues est activé uniquement hors développement.
+$viewCacheDir = dirname(__DIR__) . '/storage/cache/views';
+if ($debug) {
+    View::configureCache(null);
+} else {
+    if (!is_dir($viewCacheDir) && !mkdir($viewCacheDir, 0755, true) && !is_dir($viewCacheDir)) {
+        throw new \RuntimeException("Impossible de créer le cache des vues: {$viewCacheDir}");
+    }
+    View::configureCache($viewCacheDir, 3600);
+}
+
 $logger = BootstrapService::configureErrorHandler($app, $debug, $viewsPath);
 
 // ============================================
@@ -1703,23 +2135,9 @@ PHP;
         
         $content .= <<<'PHP'
 
-// Enregistrer Validator (php-validator) comme singleton avec la locale de l'application
-// CONCEPT : Configuration centralisée de la locale pour les messages d'erreur multilingues
-// La locale est validée par EnvValidator (déjà appelé plus haut)
-$appLocale = getenv('APP_LOCALE') ?: 'fr';
-$container->singleton(PhpValidator::class, function() use ($appLocale) {
-    return new PhpValidator($appLocale);
-});
-
-// Enregistrer CoreValidator comme singleton (utilise php-validator en interne)
-// CONCEPT : CoreValidator est un wrapper autour de php-validator utilisé par les contrôleurs
-$container->singleton(CoreValidator::class, function() use ($container) {
-    $phpValidator = $container->make(PhpValidator::class);
-    $coreValidator = new CoreValidator();
-    // Configurer la locale du CoreValidator pour qu'elle corresponde à php-validator
-    $coreValidator->setLocale($phpValidator->getLocale());
-    return $coreValidator;
-});
+// Enregistrer le validateur déjà fourni par core-php.
+// Il s'appuie lui-même sur php-validator et évite un binding redondant.
+$container->singleton(CoreValidator::class, static fn(): CoreValidator => new CoreValidator());
 
 // Enregistrer FileUploadService comme singleton (si la classe existe)
 // CONCEPT : Service d'upload de fichiers avec validation intégrée
@@ -1764,6 +2182,13 @@ EventListenerService::register($events, $logger);
 // Le router scanne les contrôleurs et enregistre automatiquement les routes
 $router->registerRoutes(HomeController::class);
 
+PHP;
+
+        if ($hasAuth) {
+            $content .= '$router->registerRoutes(\\App\\Controller\\AuthController::class);' . "\n";
+        }
+
+        $content .= <<<'PHP'
 // Démarrer l'application
 $app->start();
 
@@ -2110,4 +2535,3 @@ BASH;
         echo "\n";
     }
 }
-

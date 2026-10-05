@@ -25,9 +25,7 @@ class SafeExecTest extends TestCase
         parent::setUp();
         $this->reflection = new ReflectionClass(Installer::class);
         $this->safeExecMethod = $this->reflection->getMethod('safeExec');
-        $this->safeExecMethod->setAccessible(true);
         $this->safeShellExecMethod = $this->reflection->getMethod('safeShellExec');
-        $this->safeShellExecMethod->setAccessible(true);
     }
 
     /**
@@ -323,4 +321,3 @@ class SafeExecTest extends TestCase
         $this->safeExecMethod->invokeArgs(null, [$command, &$output, &$returnCode]);
     }
 }
-

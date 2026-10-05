@@ -30,8 +30,6 @@ class InstallerHelperTest extends TestCase
     public function testGetProjectRootReturnsValidPath(): void
     {
         $method = $this->reflection->getMethod('getProjectRoot');
-        $method->setAccessible(true);
-
         $result = $method->invokeArgs(null, []);
 
         $this->assertIsString($result);
@@ -45,8 +43,6 @@ class InstallerHelperTest extends TestCase
     public function testAskQuestionReturnsDefaultWhenEmpty(): void
     {
         $method = $this->reflection->getMethod('askQuestion');
-        $method->setAccessible(true);
-
         // Capturer la sortie pour éviter les warnings PHPUnit
         ob_start();
         // Simuler une entrée vide en redirigeant stdin
@@ -61,8 +57,6 @@ class InstallerHelperTest extends TestCase
     public function testAskQuestionReturnsTrueForY(): void
     {
         $method = $this->reflection->getMethod('askQuestion');
-        $method->setAccessible(true);
-
         // Note: Ce test nécessite un mock de stdin
         // Pour l'instant, on vérifie juste que la méthode existe
         $this->assertInstanceOf(ReflectionMethod::class, $method);
@@ -74,8 +68,6 @@ class InstallerHelperTest extends TestCase
     public function testAskQuestionReturnsTrueForYes(): void
     {
         $method = $this->reflection->getMethod('askQuestion');
-        $method->setAccessible(true);
-
         // Note: Ce test nécessite un mock de stdin
         $this->assertInstanceOf(ReflectionMethod::class, $method);
     }
@@ -86,8 +78,6 @@ class InstallerHelperTest extends TestCase
     public function testAskQuestionReturnsFalseForN(): void
     {
         $method = $this->reflection->getMethod('askQuestion');
-        $method->setAccessible(true);
-
         // Note: Ce test nécessite un mock de stdin
         $this->assertInstanceOf(ReflectionMethod::class, $method);
     }
@@ -98,8 +88,6 @@ class InstallerHelperTest extends TestCase
     public function testIsExecutableReturnsFalseForNonExistentPath(): void
     {
         $method = $this->reflection->getMethod('isExecutable');
-        $method->setAccessible(true);
-
         $result = $method->invokeArgs(null, ['/nonexistent/path/to/composer']);
 
         $this->assertFalse($result);
@@ -111,8 +99,6 @@ class InstallerHelperTest extends TestCase
     public function testIsExecutableReturnsFalseForNonExecutableFile(): void
     {
         $method = $this->reflection->getMethod('isExecutable');
-        $method->setAccessible(true);
-
         // Créer un fichier temporaire non exécutable
         $tempFile = sys_get_temp_dir() . '/php-skeleton-test-' . uniqid() . '.txt';
         file_put_contents($tempFile, 'test');
@@ -133,8 +119,6 @@ class InstallerHelperTest extends TestCase
     public function testIsExecutableHandlesComposerString(): void
     {
         $method = $this->reflection->getMethod('isExecutable');
-        $method->setAccessible(true);
-
         // isExecutable appelle safeShellExec avec 'which composer' qui contient des caractères spéciaux
         // Le test vérifie que la méthode gère correctement les erreurs de sécurité
         try {
@@ -154,8 +138,6 @@ class InstallerHelperTest extends TestCase
     public function testIsExecutableHandlesComposerPharString(): void
     {
         $method = $this->reflection->getMethod('isExecutable');
-        $method->setAccessible(true);
-
         // isExecutable appelle safeShellExec avec 'which composer.phar' qui contient des caractères spéciaux
         // Le test vérifie que la méthode gère correctement les erreurs de sécurité
         try {
@@ -175,8 +157,6 @@ class InstallerHelperTest extends TestCase
     public function testDisplayWelcomeOutputsMessage(): void
     {
         $method = $this->reflection->getMethod('displayWelcome');
-        $method->setAccessible(true);
-
         ob_start();
         $method->invokeArgs(null, []);
         $output = ob_get_clean();
@@ -184,4 +164,3 @@ class InstallerHelperTest extends TestCase
         $this->assertStringContainsString('PHP Skeleton', $output);
     }
 }
-

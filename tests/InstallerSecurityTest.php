@@ -30,8 +30,6 @@ class InstallerSecurityTest extends TestCase
     public function testInstallPackageRejectsInjection(): void
     {
         $method = $this->reflection->getMethod('installPackage');
-        $method->setAccessible(true);
-
         // Créer un répertoire temporaire
         $tempDir = sys_get_temp_dir() . '/php-skeleton-test-' . uniqid();
         mkdir($tempDir, 0755, true);
@@ -63,8 +61,6 @@ class InstallerSecurityTest extends TestCase
     public function testInstallPackageInDockerRejectsInjection(): void
     {
         $method = $this->reflection->getMethod('installPackageInDocker');
-        $method->setAccessible(true);
-
         // Créer un répertoire temporaire
         $tempDir = sys_get_temp_dir() . '/php-skeleton-test-' . uniqid();
         mkdir($tempDir, 0755, true);
@@ -96,8 +92,6 @@ class InstallerSecurityTest extends TestCase
     public function testRegenerateAutoloaderRejectsInjection(): void
     {
         $method = $this->reflection->getMethod('regenerateAutoloader');
-        $method->setAccessible(true);
-
         // Créer un répertoire temporaire
         $tempDir = sys_get_temp_dir() . '/php-skeleton-test-' . uniqid();
         mkdir($tempDir, 0755, true);
@@ -109,11 +103,9 @@ class InstallerSecurityTest extends TestCase
             // Note: escapeshellarg devrait protéger, mais testons quand même
             $method->invokeArgs(null, [$tempDir]);
 
-            // Si on arrive ici sans exception, c'est que escapeshellarg a protégé
-            $this->assertTrue(true);
+            $this->fail('La régénération doit échouer lorsque composer.json est absent.');
         } catch (\RuntimeException $e) {
-            // Exception attendue si la validation détecte l'injection
-            $this->assertStringContainsString('non autorisée', $e->getMessage());
+            $this->assertStringContainsString('composer.json', $e->getMessage());
         } finally {
             ob_end_clean();
             // Nettoyer
@@ -129,8 +121,6 @@ class InstallerSecurityTest extends TestCase
     public function testFindComposerPreventsInjection(): void
     {
         $method = $this->reflection->getMethod('findComposer');
-        $method->setAccessible(true);
-
         // La méthode devrait retourner null ou un chemin valide, jamais exécuter d'injection
         $result = $method->invokeArgs(null, []);
 
@@ -150,8 +140,6 @@ class InstallerSecurityTest extends TestCase
     public function testIsExecutablePreventsInjection(): void
     {
         $method = $this->reflection->getMethod('isExecutable');
-        $method->setAccessible(true);
-
         // Tester avec un chemin normal
         $result = $method->invokeArgs(null, ['composer']);
         $this->assertIsBool($result);
@@ -189,4 +177,3 @@ class InstallerSecurityTest extends TestCase
         rmdir($dir);
     }
 }
-
