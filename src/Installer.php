@@ -1923,8 +1923,8 @@ ENV;
     {
         self::createDockerCompose($baseDir, $hasDatabase);
         self::createDockerComposeProduction($baseDir, $hasDatabase);
-        self::createDockerfile($baseDir);
-        self::createProductionDockerfile($baseDir);
+        self::createDockerfile($baseDir, $hasDatabase);
+        self::createProductionDockerfile($baseDir, $hasDatabase);
         self::createCustomPhpIni($baseDir);
         self::createProductionPhpIni($baseDir);
         self::createAliases($baseDir);
@@ -2119,13 +2119,14 @@ YAML;
         file_put_contents($baseDir . '/docker-compose.prod.yml', $content);
     }
     
-    private static function createDockerfile(string $baseDir): void
+    private static function createDockerfile(string $baseDir, bool $hasDatabase): void
     {
         $apacheDir = $baseDir . '/apache';
         if (!is_dir($apacheDir)) {
             mkdir($apacheDir, 0755, true);
         }
         
+        $databaseExtensions = $hasDatabase ? ' pdo pdo_mysql' : '';
         $content = <<<'DOCKERFILE'
 FROM php:8.3-apache
 
@@ -2133,15 +2134,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   git \
   unzip \
   wget \
-  libpng-dev \
-  libjpeg-dev \
-  libfreetype6-dev \
-  libicu-dev \
   curl \
   && rm -rf /var/lib/apt/lists/*
 
-RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
-  && docker-php-ext-install -j$(nproc) gd intl mysqli opcache pdo pdo_mysql
+RUN docker-php-ext-install -j$(nproc) mbstring opcache__DATABASE_EXTENSIONS__
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
@@ -2159,17 +2155,20 @@ RUN chown -R www-data:www-data /var/www/html
 
 EXPOSE 80
 DOCKERFILE;
+
+        $content = str_replace('__DATABASE_EXTENSIONS__', $databaseExtensions, $content);
         
         file_put_contents($apacheDir . '/Dockerfile', $content);
     }
 
-    private static function createProductionDockerfile(string $baseDir): void
+    private static function createProductionDockerfile(string $baseDir, bool $hasDatabase): void
     {
         $apacheDir = $baseDir . '/apache';
         if (!is_dir($apacheDir)) {
             mkdir($apacheDir, 0755, true);
         }
 
+        $databaseExtensions = $hasDatabase ? ' pdo pdo_mysql' : '';
         $content = <<<'DOCKERFILE'
 FROM composer:2 AS dependencies
 
@@ -2181,14 +2180,9 @@ FROM php:8.3-apache
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
   wget \
-  libpng-dev \
-  libjpeg-dev \
-  libfreetype6-dev \
-  libicu-dev \
   && rm -rf /var/lib/apt/lists/*
 
-RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
-  && docker-php-ext-install -j$(nproc) gd intl mysqli opcache pdo pdo_mysql
+RUN docker-php-ext-install -j$(nproc) mbstring opcache__DATABASE_EXTENSIONS__
 
 RUN sed -i 's|/var/www/html|/var/www/html/public|g' /etc/apache2/sites-available/000-default.conf \
   && echo "ServerName localhost\n\
@@ -2206,6 +2200,8 @@ RUN chown -R www-data:www-data /var/www/html
 
 EXPOSE 80
 DOCKERFILE;
+
+        $content = str_replace('__DATABASE_EXTENSIONS__', $databaseExtensions, $content);
 
         file_put_contents($apacheDir . '/Dockerfile.prod', $content);
     }

@@ -392,7 +392,7 @@ Cette checklist couvre l’optimisation de `php-skeleton`, de son installateur, 
 - [ ] Séparer clairement les images et configurations de développement et de production.
 - [ ] Retirer Xdebug de l’image de production.
 - [ ] Retirer NVM, Node et outils de confort de l’image de production lorsqu’ils ne sont pas nécessaires à l’exécution.
-- [ ] Installer uniquement les extensions PHP requises par le profil choisi.
+- [x] Installer uniquement les extensions PHP requises par le profil choisi.
 - [ ] Activer et configurer OPcache en production.
 - [ ] Épingler les versions des images de base et des outils essentiels.
 - [ ] Vérifier la reproductibilité d’un build sans accès implicite à l’environnement local.

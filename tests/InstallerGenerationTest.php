@@ -697,6 +697,16 @@ SQL);
 
         mkdir($this->projectDir . '/www', 0755, true);
         $this->invoke($reflection, 'createEnvExample', $this->projectDir, $this->projectDir . '/www', true);
+        $this->invoke($reflection, 'createDockerFiles', $this->projectDir, false);
+        $baseDockerfile = (string) file_get_contents($this->projectDir . '/apache/Dockerfile');
+        $baseProductionDockerfile = (string) file_get_contents($this->projectDir . '/apache/Dockerfile.prod');
+        self::assertStringContainsString('mbstring opcache', $baseDockerfile);
+        self::assertStringNotContainsString('pdo_mysql', $baseDockerfile);
+        self::assertStringNotContainsString(' gd ', $baseDockerfile);
+        self::assertStringNotContainsString('intl', $baseDockerfile);
+        self::assertStringNotContainsString('mysqli', $baseDockerfile);
+        self::assertStringNotContainsString('pdo_mysql', $baseProductionDockerfile);
+
         $this->invoke($reflection, 'createDockerFiles', $this->projectDir, true);
 
         $developmentCompose = (string) file_get_contents($this->projectDir . '/docker-compose.yml');
@@ -714,6 +724,10 @@ SQL);
         self::assertStringNotContainsString('MYSQL_ROOT_HOST=%', $productionCompose);
         self::assertStringContainsString('FROM composer:2 AS dependencies', $productionDockerfile);
         self::assertStringContainsString('composer install --no-dev', $productionDockerfile);
+        self::assertStringContainsString('mbstring opcache pdo pdo_mysql', $productionDockerfile);
+        self::assertStringNotContainsString(' gd ', $productionDockerfile);
+        self::assertStringNotContainsString('intl', $productionDockerfile);
+        self::assertStringNotContainsString('mysqli', $productionDockerfile);
         self::assertStringContainsString('display_errors = Off', $productionIni);
         self::assertStringContainsString('opcache.validate_timestamps = 0', $productionIni);
 
