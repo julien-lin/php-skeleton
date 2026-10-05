@@ -2238,31 +2238,51 @@ final class ProductController extends ApiController
     #[Route(path: '/api/products', methods: ['GET'], name: 'api.products.index')]
     public function index(Request|array $requestOrParams = []): Response
     {
-        return parent::index($requestOrParams);
+        try {
+            return parent::index($requestOrParams);
+        } catch (\Throwable $exception) {
+            return $this->errorResponse($exception, '/api/products');
+        }
     }
 
     #[Route(path: '/api/products/{id}', methods: ['GET'], name: 'api.products.show', constraints: ['id' => '\\d+'])]
     public function show(Request|int|string $requestOrId): Response
     {
-        return parent::show($requestOrId);
+        try {
+            return parent::show($requestOrId);
+        } catch (\Throwable $exception) {
+            return $this->errorResponse($exception, '/api/products');
+        }
     }
 
     #[Route(path: '/api/products', methods: ['POST'], name: 'api.products.create')]
     public function create(Request|array $requestOrData): Response
     {
-        return parent::create($requestOrData);
+        try {
+            return parent::create($requestOrData);
+        } catch (\Throwable $exception) {
+            return $this->errorResponse($exception, '/api/products');
+        }
     }
 
     #[Route(path: '/api/products/{id}', methods: ['PUT'], name: 'api.products.update', constraints: ['id' => '\\d+'])]
     public function update(Request|int|string $requestOrId, ?array $data = null): Response
     {
-        return parent::update($requestOrId, $data);
+        try {
+            return parent::update($requestOrId, $data);
+        } catch (\Throwable $exception) {
+            return $this->errorResponse($exception, '/api/products');
+        }
     }
 
     #[Route(path: '/api/products/{id}', methods: ['DELETE'], name: 'api.products.delete', constraints: ['id' => '\\d+'])]
     public function delete(Request|int|string $requestOrId): Response
     {
-        return parent::delete($requestOrId);
+        try {
+            return parent::delete($requestOrId);
+        } catch (\Throwable $exception) {
+            return $this->errorResponse($exception, '/api/products');
+        }
     }
 
     protected function getAll(array $queryParams = []): array

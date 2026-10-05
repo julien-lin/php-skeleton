@@ -135,6 +135,11 @@ final class InstallerGenerationTest extends TestCase
         }
 
         self::assertSame(5, $routeCount);
+
+        $invalidPayload = $controller->create([]);
+        self::assertSame(400, $invalidPayload->getStatusCode());
+        self::assertSame('application/json', $invalidPayload->getHeaders()['content-type'] ?? null);
+        self::assertSame(400, json_decode($invalidPayload->getContent(), true, 512, JSON_THROW_ON_ERROR)['status']);
     }
 
     public function testVisionProfileIsOptionalAndUsesVisionTemplates(): void

@@ -326,12 +326,13 @@ Cette checklist couvre l’optimisation de `php-skeleton`, de son installateur, 
 
 - [x] Ajouter `php-api` uniquement sur demande explicite.
 - [x] Générer une configuration API minimale et documentée.
-- [ ] Définir la gestion des erreurs et le format des réponses.
+- [x] Définir la gestion des erreurs et le format des réponses.
 - [ ] Définir l’authentification API séparément de la session web si nécessaire.
 - [x] Configurer CORS avec une liste d’origines explicite.
 - [ ] Appliquer la validation et la limitation de débit au niveau des routes API.
 - [x] Ne pas activer CSRF par défaut sur les routes stateless.
-- [ ] Ajouter des tests de payload invalide, erreur d’authentification et réponse JSON.
+- [x] Ajouter des tests de payload invalide et de réponse JSON.
+- [ ] Ajouter un test d’erreur d’authentification API.
 
 ### P1 — Profil interface optionnelle
 

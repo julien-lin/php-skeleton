@@ -14,6 +14,7 @@ et ce projet adhère à [Semantic Versioning](https://semver.org/lang/fr/).
 - Documentation et tests de génération du profil sécurisé ajoutés.
 - Ajout d’un test d’intégration qui installe les dépendances du profil API et instancie ses contrôleur et entité générés.
 - Le profil API génère une allowlist CORS vide par défaut et documente `API_CORS_ORIGINS`.
+- Les actions CRUD API générées renvoient désormais les erreurs au format JSON Problem Details (RFC 7807).
 
 ## [1.5.13] - 2025-01-XX
 
