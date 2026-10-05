@@ -187,7 +187,7 @@ Cette checklist couvre l’optimisation de `php-skeleton`, de son installateur, 
 
 ### P0 — Sécurité des fichiers
 
-- [ ] Refuser par défaut l’installation dans un répertoire non vide.
+- [x] Refuser par défaut l’installation dans un répertoire non vide.
 - [ ] Ajouter une option explicite et documentée pour reprendre un répertoire existant si ce cas est réellement nécessaire.
 - [x] Supprimer toute logique de nettoyage récursif non limitée aux fichiers créés par l’installateur.
 - [x] Ne jamais supprimer le README, la licence, la documentation, le lockfile ou des fichiers inconnus de l’installateur.
@@ -465,7 +465,7 @@ Cette checklist couvre l’optimisation de `php-skeleton`, de son installateur, 
 - [x] Ajouter un test qui détecte les secrets en clair dans les fichiers générés.
 - [ ] Ajouter un test qui détecte les commandes destructives sur le répertoire cible.
 - [ ] Ajouter un test de relance de l’installateur.
-- [ ] Ajouter un test de projet cible non vide.
+- [x] Ajouter un test de projet cible non vide.
 - [ ] Ajouter un test d’échec de Composer et de rollback.
 - [ ] Ajouter un test de chemins contenant des espaces et caractères spéciaux.
 

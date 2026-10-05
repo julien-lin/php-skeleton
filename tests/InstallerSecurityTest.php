@@ -134,6 +134,38 @@ class InstallerSecurityTest extends TestCase
         }
     }
 
+    public function testInstallTargetRejectsNonSkeletonDirectory(): void
+    {
+        $tempDir = sys_get_temp_dir() . '/php-skeleton-target-' . bin2hex(random_bytes(6));
+        mkdir($tempDir, 0755, true);
+        file_put_contents($tempDir . '/README.md', 'existing project');
+
+        try {
+            $this->expectException(\RuntimeException::class);
+            $this->expectExceptionMessage('composer.json introuvable');
+            $this->reflection->getMethod('assertInstallTargetIsSkeleton')->invoke(null, $tempDir, false);
+        } finally {
+            $this->removeDirectory($tempDir);
+        }
+    }
+
+    public function testInstallTargetRejectsGeneratedProject(): void
+    {
+        $tempDir = sys_get_temp_dir() . '/php-skeleton-generated-' . bin2hex(random_bytes(6));
+        mkdir($tempDir, 0755, true);
+        file_put_contents($tempDir . '/composer.json', json_encode([
+            'name' => 'app/existing-project',
+        ], JSON_THROW_ON_ERROR));
+
+        try {
+            $this->expectException(\RuntimeException::class);
+            $this->expectExceptionMessage('déjà contenir une application générée');
+            $this->reflection->getMethod('assertInstallTargetIsSkeleton')->invoke(null, $tempDir, false);
+        } finally {
+            $this->removeDirectory($tempDir);
+        }
+    }
+
     /**
      * Test que isExecutable ne permet pas l'injection
      */
