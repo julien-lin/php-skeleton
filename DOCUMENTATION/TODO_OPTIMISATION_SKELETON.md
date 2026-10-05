@@ -135,7 +135,7 @@ Cette checklist couvre l’optimisation de `php-skeleton`, de son installateur, 
 - [x] Aligner la contrainte PHP de `php-api` sur la version officiellement supportée.
 - [x] Vérifier la compatibilité réelle de `php-api` avec les versions verrouillées du skeleton.
 - [x] Régénérer et tester le lockfile de `php-api` avant de l’utiliser dans un profil généré.
-- [ ] Ajouter un test d’intégration du profil API avec le skeleton.
+- [x] Ajouter un test d’intégration du profil API avec le skeleton.
 
 ### P1 — Bibliothèque d’interface optionnelle
 

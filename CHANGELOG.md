@@ -12,6 +12,7 @@ et ce projet adhère à [Semantic Versioning](https://semver.org/lang/fr/).
 - Ajout du profil sécurisé optionnel avec validation des requêtes, limitation de débit, en-têtes HTTP et compression gzip.
 - HSTS est activé uniquement en production et les compteurs de limitation sont stockés dans `storage/cache/rate-limit`.
 - Documentation et tests de génération du profil sécurisé ajoutés.
+- Ajout d’un test d’intégration qui installe les dépendances du profil API et instancie ses contrôleur et entité générés.
 
 ## [1.5.13] - 2025-01-XX
 

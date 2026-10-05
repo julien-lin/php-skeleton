@@ -109,6 +109,30 @@ final class InstallerGenerationTest extends TestCase
         self::assertStringContainsString('registerRoutes(\\App\\Controller\\ProductController::class)', $index);
     }
 
+    public function testApiProfileResolvesGeneratedDependencies(): void
+    {
+        $reflection = new ReflectionClass(Installer::class);
+        $this->invokeSilently($reflection, 'createLocalStructure', $this->projectDir, true, false, true, false);
+        $this->invoke($reflection, 'copyComposerJson', $this->projectDir, $this->projectDir, true, false, true, false);
+
+        $this->runComposer($this->projectDir, 'install', '--no-dev', '--no-interaction', '--prefer-dist');
+        $this->runComposer($this->projectDir, 'validate', '--no-check-publish', '--no-interaction');
+
+        require_once $this->projectDir . '/vendor/autoload.php';
+
+        self::assertTrue(class_exists('App\\Entity\\Product'));
+        self::assertTrue(class_exists('App\\Controller\\ProductController'));
+
+        $controller = new \App\Controller\ProductController();
+        $routes = (new ReflectionClass($controller))->getMethods();
+        $routeCount = 0;
+        foreach ($routes as $method) {
+            $routeCount += count($method->getAttributes(\JulienLinard\Router\Attributes\Route::class));
+        }
+
+        self::assertSame(5, $routeCount);
+    }
+
     public function testVisionProfileIsOptionalAndUsesVisionTemplates(): void
     {
         $reflection = new ReflectionClass(Installer::class);
@@ -203,6 +227,25 @@ final class InstallerGenerationTest extends TestCase
         } finally {
             ob_end_clean();
         }
+    }
+
+    private function runComposer(string $workingDirectory, string ...$arguments): void
+    {
+        $pipes = [];
+        $process = proc_open(
+            array_merge(['composer'], $arguments),
+            [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+            $pipes,
+            $workingDirectory
+        );
+
+        self::assertIsResource($process);
+        $output = stream_get_contents($pipes[1]) . stream_get_contents($pipes[2]);
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+        $exitCode = proc_close($process);
+
+        self::assertSame(0, $exitCode, $output);
     }
 
     private function removeDirectory(string $directory): void
