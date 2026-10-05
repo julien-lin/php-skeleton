@@ -174,10 +174,10 @@ Cette checklist couvre l’optimisation de `php-skeleton`, de son installateur, 
 
 ### P1 — Ordre des middlewares
 
-- [ ] Définir l’ordre officiel des middlewares du profil base.
-- [ ] Définir l’ordre officiel du profil sécurisé.
-- [ ] Définir l’ordre officiel du profil API.
-- [ ] Définir les middlewares qui s’appliquent globalement et ceux qui s’appliquent par groupe de routes.
+- [x] Définir l’ordre officiel des middlewares du profil base.
+- [x] Définir l’ordre officiel du profil sécurisé.
+- [x] Définir l’ordre officiel du profil API.
+- [x] Définir les middlewares qui s’appliquent globalement et ceux qui s’appliquent par groupe de routes.
 - [x] Documenter explicitement l’absence de CSRF par défaut sur les routes API stateless.
 - [x] Vérifier que la limitation de débit ne bloque pas les routes de santé ou les migrations opérationnelles.
 
@@ -548,7 +548,7 @@ Les tâches doivent être traitées dans cet ordre pour éviter de stabiliser de
 
 1. [ ] Établir la référence et la matrice de support — section 0.
 2. [ ] Corriger les contraintes Composer, le lockfile et les vulnérabilités — section 1.
-3. [ ] Aligner les contrats Core/Router et le pipeline de réponse — section 2.
+3. [x] Aligner les contrats Core/Router et le pipeline de réponse — section 2.
 4. [ ] Sécuriser puis découper l’installateur — section 3.
 5. [ ] Corriger le bootstrap, l’environnement et les secrets — section 4.
 6. [ ] Stabiliser le profil base — section 5.
@@ -570,7 +570,7 @@ Les tâches doivent être traitées dans cet ordre pour éviter de stabiliser de
 
 ### Jalon B — Fondation technique
 
-- [ ] Contrats middleware alignés.
+- [x] Contrats middleware alignés.
 - [ ] Configuration validée et secrets protégés.
 - [ ] Cache de vues branché sur les API existantes.
 - [ ] Docker développement et production séparés.
@@ -598,7 +598,7 @@ Les tâches doivent être traitées dans cet ordre pour éviter de stabiliser de
 - [ ] Aucun wildcard de dépendance ne subsiste sans justification documentée.
 - [ ] Aucun secret prévisible n’est généré par défaut.
 - [ ] Aucun nettoyage destructif ne peut viser le répertoire utilisateur sans confirmation explicite.
-- [ ] Les middlewares enregistrés respectent un contrat unique et testé.
+- [x] Les middlewares enregistrés respectent un contrat unique et testé.
 - [ ] Les migrations et commandes Doctrine fonctionnent dans un projet généré.
 - [ ] Les routes protégées et les réponses d’erreur sont testées.
 - [ ] Les images de production n’embarquent pas les outils de développement inutiles.

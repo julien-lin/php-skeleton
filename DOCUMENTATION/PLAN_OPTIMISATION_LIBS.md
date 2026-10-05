@@ -190,9 +190,9 @@ Le bootstrap doit utiliser les services existants dans cet ordre :
 
 | Profil | Middlewares recommandés |
 |---|---|
-| Base | Aucun middleware global obligatoire hors CSRF pour les formulaires |
-| Web sécurisé | Security headers, CSRF, rate limit ciblé |
-| API | CORS configuré explicitement, rate limit, validation API ; pas de CSRF par défaut |
+| Base | Groupe web : CSRF pour les formulaires |
+| Web sécurisé | Global : headers/compression ; groupe web : CSRF, validation, rate limit |
+| API | Groupe API : CORS configuré explicitement, validation, rate limit ; pas de CSRF |
 | Auth | Auth/Guest/Role/Permission au niveau des routes concernées |
 | Production | Compression après résolution de réponse, si le pipeline le supporte réellement |
 

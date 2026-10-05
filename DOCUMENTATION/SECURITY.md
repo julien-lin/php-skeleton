@@ -69,6 +69,15 @@ Le middleware `SecurityHeadersMiddleware` ajoute automatiquement :
 
 - Middleware CSRF disponible
 - Tokens CSRF pour les formulaires
+- Le groupe API stateless n’enregistre pas le middleware CSRF ; utilisez des jetons d’API ou une authentification adaptée à ce mode.
+
+#### Ordre et portée des middlewares
+
+Le bootstrap généré sépare les middlewares globaux des groupes de routes :
+
+- les headers de sécurité et la compression sont globaux dans le profil sécurisé ;
+- les routes web suivent l’ordre CSRF, validation, puis limitation de débit ;
+- les routes API suivent l’ordre CORS, validation, puis limitation de débit, sans CSRF.
 
 ## Bonnes Pratiques
 
@@ -197,4 +206,3 @@ Nous répondrons dans les 48 heures et publierons un correctif si nécessaire.
 - [OWASP Top 10](https://owasp.org/www-project-top-ten/)
 - [PHP Security Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/PHP_Configuration_Cheat_Sheet.html)
 - [Composer Security Advisories](https://github.com/FriendsOfPHP/security-advisories)
-

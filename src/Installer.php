@@ -3061,45 +3061,11 @@ if (class_exists(\App\Service\FileUploadService::class)) {
 $router = $app->getRouter();
 PHP;
 
-        if ($hasApi) {
-            $content .= <<<'PHP'
-
-// CORS API : aucune origine n'est autorisée par défaut.
-// Configurez API_CORS_ORIGINS dans .env avec une liste explicite.
-$router->addMiddleware(new CorsMiddleware(getenv('API_CORS_ORIGINS') ?: ''));
-PHP;
-        }
-
-        if ($hasApi && !$hasSecure) {
-            $content .= <<<'PHP'
-
-// Validation et limitation de débit ciblées sur les routes API.
-// La route /health et les routes web ne consomment pas ce quota.
-$router->addMiddleware(new RequestValidationMiddleware(10_485_760, ['/api']));
-$router->addMiddleware(new RateLimitMiddleware(100, 60, dirname(__DIR__) . '/storage/cache/rate-limit', ['/api']));
-PHP;
-        }
-
-        $content .= <<<'PHP'
-
-// Ajouter le middleware CSRF globalement pour toutes les requêtes
-// CONCEPT PÉDAGOGIQUE : Middleware Global
-// Un middleware global s'exécute sur TOUTES les requêtes
-// Ici, il génère le token CSRF si nécessaire et le vérifie pour POST/PUT/DELETE
-// CONCEPT : CSRF Protection (Cross-Site Request Forgery)
-// Protection contre les attaques où un site malveillant fait des requêtes en votre nom
-$router->addMiddleware(new CsrfMiddleware());
-PHP;
-
         if ($hasSecure) {
             $content .= <<<'PHP'
 
-// Profil sécurisé : validation, limitation de débit et headers HTTP.
-// L'ordre est volontaire : les requêtes sont validées et limitées avant
-// l'exécution des contrôleurs, tandis que les headers et la compression sont
-// appliqués au corps de réponse complet par le routeur.
-$router->addMiddleware(new RequestValidationMiddleware(10_485_760));
-$router->addMiddleware(new RateLimitMiddleware(100, 60, dirname(__DIR__) . '/storage/cache/rate-limit'));
+// Les middlewares de réponse restent globaux afin de couvrir les réponses
+// web et API. Le routeur les applique après le contrôleur.
 $router->addMiddleware(new SecurityHeadersMiddleware([
     'hsts' => getenv('APP_ENV') === 'production' ? 'max-age=31536000; includeSubDomains' : null,
     'permissionsPolicy' => 'geolocation=(), camera=(), microphone=()',
@@ -3128,16 +3094,46 @@ EventListenerService::register($events, $logger);
 // CONCEPT PÉDAGOGIQUE : Route Attributes (PHP 8)
 // Les routes sont définies directement dans les contrôleurs avec des attributs #[Route]
 // Le router scanne les contrôleurs et enregistre automatiquement les routes
-$router->registerRoutes(HomeController::class);
+
+// Pipeline web officiel : CSRF, validation, limitation de débit.
+// Ces middlewares s'appliquent aux routes HTML et aux routes d'authentification,
+// mais pas au groupe API stateless ci-dessous.
+$router->group('', [
+    new CsrfMiddleware(),
+PHP;
+
+        if ($hasSecure && !$hasApi) {
+            $content .= <<<'PHP'
+    new RequestValidationMiddleware(10_485_760),
+    new RateLimitMiddleware(100, 60, dirname(__DIR__) . '/storage/cache/rate-limit'),
+PHP;
+        }
+
+        $content .= <<<'PHP'
+], static function ($router): void {
+    $router->registerRoutes(HomeController::class);
 
 PHP;
 
         if ($hasAuth) {
-            $content .= '$router->registerRoutes(\\App\\Controller\\AuthController::class);' . "\n";
+            $content .= '    $router->registerRoutes(\\App\\Controller\\AuthController::class);' . "\n";
         }
 
+        $content .= "});\n";
+
         if ($hasApi) {
-            $content .= '$router->registerRoutes(\\App\\Controller\\ProductController::class);' . "\n";
+            $content .= <<<'PHP'
+
+// Pipeline API officiel : CORS, validation, limitation de débit.
+// Le groupe est stateless : aucun middleware CSRF n'y est enregistré.
+$router->group('', [
+    new CorsMiddleware(getenv('API_CORS_ORIGINS') ?: ''),
+    new RequestValidationMiddleware(10_485_760),
+    new RateLimitMiddleware(100, 60, dirname(__DIR__) . '/storage/cache/rate-limit'),
+], static function ($router): void {
+    $router->registerRoutes(\App\Controller\ProductController::class);
+});
+PHP;
         }
 
         $content .= <<<'PHP'

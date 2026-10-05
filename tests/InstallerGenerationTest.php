@@ -233,9 +233,6 @@ PHP);
         self::assertStringContainsString("'hsts' => getenv('APP_ENV') === 'production'", $index);
 
         $middlewareOrder = [
-            'new CsrfMiddleware()',
-            'new RequestValidationMiddleware(10_485_760)',
-            'new RateLimitMiddleware(100, 60',
             'new SecurityHeadersMiddleware([',
             'new CompressionMiddleware([',
         ];
@@ -244,6 +241,24 @@ PHP);
             $position = strpos($index, $middleware);
             self::assertNotFalse($position, "Middleware absent du bootstrap généré : {$middleware}");
             self::assertGreaterThan($previousPosition, $position, "Ordre inattendu pour le middleware : {$middleware}");
+            $previousPosition = $position;
+        }
+
+        $webGroupStart = strpos($index, '$router->group(\'\', [');
+        self::assertNotFalse($webGroupStart);
+        $webGroupEnd = strpos($index, '], static function ($router): void {', $webGroupStart);
+        self::assertNotFalse($webGroupEnd);
+        $webGroup = substr($index, $webGroupStart, $webGroupEnd - $webGroupStart);
+        $webMiddlewareOrder = [
+            'new CsrfMiddleware()',
+            'new RequestValidationMiddleware(10_485_760)',
+            'new RateLimitMiddleware(100, 60',
+        ];
+        $previousPosition = -1;
+        foreach ($webMiddlewareOrder as $middleware) {
+            $position = strpos($webGroup, $middleware);
+            self::assertNotFalse($position, "Middleware web absent du bootstrap généré : {$middleware}");
+            self::assertGreaterThan($previousPosition, $position, "Ordre web inattendu pour le middleware : {$middleware}");
             $previousPosition = $position;
         }
     }
@@ -560,9 +575,27 @@ SQL);
         self::assertStringContainsString('ProductController', $index);
         self::assertStringContainsString('registerRoutes(\\App\\Controller\\ProductController::class)', $index);
         self::assertStringContainsString("new CorsMiddleware(getenv('API_CORS_ORIGINS') ?: '')", $index);
-        self::assertStringContainsString("new RequestValidationMiddleware(10_485_760, ['/api'])", $index);
-        self::assertStringContainsString("new RateLimitMiddleware(100, 60, dirname(__DIR__) . '/storage/cache/rate-limit', ['/api'])", $index);
-        self::assertStringContainsString('new CsrfMiddleware()', $index);
+        self::assertStringContainsString("new RequestValidationMiddleware(10_485_760)", $index);
+        self::assertStringContainsString("new RateLimitMiddleware(100, 60, dirname(__DIR__) . '/storage/cache/rate-limit')", $index);
+
+        $apiGroupStart = strrpos($index, '$router->group(\'\', [');
+        self::assertNotFalse($apiGroupStart);
+        $apiGroup = substr($index, $apiGroupStart);
+        self::assertStringNotContainsString('new CsrfMiddleware()', $apiGroup);
+        self::assertStringContainsString('// Le groupe est stateless : aucun middleware CSRF n\'y est enregistré.', $index);
+
+        $apiMiddlewareOrder = [
+            'new CorsMiddleware(',
+            'new RequestValidationMiddleware(10_485_760)',
+            'new RateLimitMiddleware(100, 60',
+        ];
+        $previousPosition = -1;
+        foreach ($apiMiddlewareOrder as $middleware) {
+            $position = strpos($apiGroup, $middleware);
+            self::assertNotFalse($position, "Middleware API absent du bootstrap généré : {$middleware}");
+            self::assertGreaterThan($previousPosition, $position, "Ordre API inattendu pour le middleware : {$middleware}");
+            $previousPosition = $position;
+        }
     }
 
     public function testApiProfileResolvesGeneratedDependencies(): void
