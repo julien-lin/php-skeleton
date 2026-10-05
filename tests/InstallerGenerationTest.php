@@ -134,6 +134,21 @@ final class InstallerGenerationTest extends TestCase
             'status' => 'ok',
             'framework' => 'php-skeleton',
         ], json_decode($output, true, 512, JSON_THROW_ON_ERROR));
+
+        $incompleteEnv = preg_replace(
+            ['/^APP_SECRET=.*$/m', '/^APP_DEBUG=.*$/m'],
+            ['APP_SECRET=', 'APP_DEBUG=1'],
+            (string) file_get_contents($this->projectDir . '/.env')
+        );
+        self::assertIsString($incompleteEnv);
+        self::assertNotSame(false, file_put_contents($this->projectDir . '/.env', $incompleteEnv));
+
+        [$failureCode, $failureOutput, $failureErrors] = $this->runGeneratedHealthRequest();
+        self::assertNotSame(0, $failureCode, $failureOutput . "\n" . $failureErrors);
+        self::assertStringContainsString(
+            "APP_SECRET n'est pas défini",
+            $failureOutput . "\n" . $failureErrors
+        );
     }
 
     public function testSecureProfileAddsOnlyCoreSecurityMiddleware(): void

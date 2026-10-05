@@ -31,6 +31,7 @@ et ce projet adhère à [Semantic Versioning](https://semver.org/lang/fr/).
 - Un test vérifie que les secrets runtime ne sont jamais recopiés dans les fichiers générés hors `.env`.
 - MariaDB est désormais publiée uniquement sur `127.0.0.1` dans le compose de développement généré.
 - Le validateur d’environnement généré refuse aussi l’absence de `APP_SECRET` avant l’activation de l’authentification.
+- Le smoke test du profil base vérifie désormais le message affiché avec un `.env` incomplet.
 - Correction de la réponse `/account` pour les visiteurs non authentifiés.
 
 ## [1.5.13] - 2025-01-XX
