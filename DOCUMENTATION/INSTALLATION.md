@@ -25,6 +25,12 @@ Pour une exécution automatisée en CI, utilisez les valeurs par défaut sans in
 PHP_SKELETON_NON_INTERACTIVE=1 composer create-project julienlinard/php-skeleton mon-projet
 ```
 
+Pour diagnostiquer l’installation, activez les sorties détaillées sans afficher les secrets :
+
+```bash
+PHP_SKELETON_VERBOSE=1 php vendor/bin/php-skeleton-install
+```
+
 ### Méthode 2 : Clonage du dépôt
 
 ```bash

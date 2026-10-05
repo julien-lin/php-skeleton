@@ -258,6 +258,10 @@ class Installer
         }
 
         $command = array_merge([$composerPath], array_values($arguments));
+        self::verbose('Commande Composer: ' . self::redactSensitiveText(implode(' ', array_map(
+            static fn(mixed $argument): string => escapeshellarg((string) $argument),
+            $command
+        ))));
         $descriptorSpec = [
             0 => ['pipe', 'r'],
             1 => ['pipe', 'w'],
@@ -280,8 +284,49 @@ class Installer
             preg_split('/\R/', trim((string)$stdout . "\n" . (string)$stderr)) ?: [],
             static fn(string $line): bool => $line !== ''
         ));
+        $output = array_map(self::redactSensitiveText(...), $output);
+
+        if (self::isVerbose() && $output !== []) {
+            foreach ($output as $line) {
+                self::verbose('  ' . $line);
+            }
+        }
 
         return [$output, $returnCode];
+    }
+
+    private static function isVerbose(): bool
+    {
+        $value = getenv('PHP_SKELETON_VERBOSE');
+        if ($value === false) {
+            return false;
+        }
+
+        return in_array(strtolower(trim($value)), ['1', 'true', 'yes', 'on'], true);
+    }
+
+    private static function verbose(string $message): void
+    {
+        if (!self::isVerbose()) {
+            return;
+        }
+
+        echo "[verbose] " . self::redactSensitiveText($message) . "\n";
+    }
+
+    private static function redactSensitiveText(string $text): string
+    {
+        $text = preg_replace_callback(
+            '/\b(APP_SECRET|DB_PASS|MYSQL_PASSWORD|MYSQL_ROOT_PASSWORD|PASSWORD|TOKEN|API_KEY)\s*([=:])\s*([^\s,;]+)/i',
+            static fn(array $matches): string => $matches[1] . $matches[2] . '[REDACTED]',
+            $text
+        ) ?? $text;
+
+        return preg_replace_callback(
+            '/(--(?:password|token|secret|api-key)(?:=|\s+))([^\s]+)/i',
+            static fn(array $matches): string => $matches[1] . '[REDACTED]',
+            $text
+        ) ?? $text;
     }
 
     private static function assertPackageName(string $package): void

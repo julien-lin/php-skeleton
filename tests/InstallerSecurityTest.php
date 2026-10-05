@@ -312,6 +312,31 @@ class InstallerSecurityTest extends TestCase
         }
     }
 
+    public function testVerboseModeRedactsSensitiveValues(): void
+    {
+        $previous = getenv('PHP_SKELETON_VERBOSE');
+        putenv('PHP_SKELETON_VERBOSE=1');
+
+        ob_start();
+        try {
+            $this->reflection->getMethod('verbose')->invoke(null, 'MYSQL_PASSWORD=super-secret --token abc123');
+            $output = (string) ob_get_contents();
+        } finally {
+            ob_end_clean();
+            if ($previous === false) {
+                putenv('PHP_SKELETON_VERBOSE');
+            } else {
+                putenv('PHP_SKELETON_VERBOSE=' . $previous);
+            }
+        }
+
+        self::assertStringContainsString('[verbose]', $output);
+        self::assertStringContainsString('MYSQL_PASSWORD=[REDACTED]', $output);
+        self::assertStringContainsString('--token [REDACTED]', $output);
+        self::assertStringNotContainsString('super-secret', $output);
+        self::assertStringNotContainsString('abc123', $output);
+    }
+
     /**
      * Test que isExecutable ne permet pas l'injection
      */

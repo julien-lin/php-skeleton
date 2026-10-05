@@ -202,8 +202,8 @@ Cette checklist couvre l’optimisation de `php-skeleton`, de son installateur, 
 - [x] Échapper correctement les chemins et arguments transmis aux processus externes.
 - [x] Capturer séparément sortie standard, sortie d’erreur et code retour.
 - [x] Arrêter immédiatement la génération lorsqu’une commande critique échoue.
-- [ ] Ne jamais afficher les secrets présents dans les arguments ou l’environnement.
-- [ ] Ajouter un mode verbeux contrôlé par l’utilisateur.
+- [x] Ne jamais afficher les secrets présents dans les arguments ou l’environnement.
+- [x] Ajouter un mode verbeux contrôlé par l’utilisateur (`PHP_SKELETON_VERBOSE=1`).
 - [x] Ajouter un mode non interactif adapté à la CI (`PHP_SKELETON_NON_INTERACTIVE=1`).
 
 ### P1 — Découpage de l’installateur
