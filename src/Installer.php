@@ -14,6 +14,7 @@ class Installer
     public static function postInstall(): void
     {
         self::displayWelcome();
+        self::assertRequiredBinaries();
         
         $useDocker = self::askQuestion('Voulez-vous utiliser Docker ? (y/N)', false);
         
@@ -265,6 +266,16 @@ class Installer
         }
         
         return null;
+    }
+
+    private static function assertRequiredBinaries(): void
+    {
+        if (self::findComposer() === null) {
+            throw new \RuntimeException(
+                'Composer est requis avant de commencer la génération. ' .
+                'Installez Composer puis relancez l’installation.'
+            );
+        }
     }
     
     /**

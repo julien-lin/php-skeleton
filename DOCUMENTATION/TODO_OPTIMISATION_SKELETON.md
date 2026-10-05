@@ -198,7 +198,7 @@ Cette checklist couvre l’optimisation de `php-skeleton`, de son installateur, 
 ### P0 — Exécution des commandes
 
 - [x] Remplacer le parsing fragile des chaînes de commandes par des arguments structurés pour les commandes Composer utilisées par l’installateur.
-- [ ] Valider les binaires nécessaires avant de commencer la génération.
+- [x] Valider les binaires nécessaires avant de commencer la génération.
 - [ ] Échapper correctement les chemins et arguments transmis aux processus externes.
 - [ ] Capturer séparément sortie standard, sortie d’erreur et code retour.
 - [ ] Arrêter immédiatement la génération lorsqu’une commande critique échoue.

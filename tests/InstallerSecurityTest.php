@@ -134,6 +134,12 @@ class InstallerSecurityTest extends TestCase
         }
     }
 
+    public function testRequiredBinariesAreValidatedBeforeGeneration(): void
+    {
+        $this->reflection->getMethod('assertRequiredBinaries')->invoke(null);
+        self::assertNotNull($this->reflection->getMethod('findComposer')->invoke(null));
+    }
+
     public function testInstallTargetRejectsNonSkeletonDirectory(): void
     {
         $tempDir = sys_get_temp_dir() . '/php-skeleton-target-' . bin2hex(random_bytes(6));
