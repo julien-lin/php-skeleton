@@ -606,6 +606,7 @@ SQL);
         self::assertStringContainsString('MYSQL_ROOT_PASSWORD', $compose);
         self::assertStringContainsString('127.0.0.1:${MARIADB_PORT:-3306}:3306', $compose);
         self::assertStringNotContainsString('      - "${MARIADB_PORT:-3306}:3306"', $compose);
+        self::assertStringNotContainsString('MYSQL_ROOT_HOST', $compose);
     }
 
     public function testDockerDevelopmentAndProductionConfigurationsAreSeparated(): void
@@ -629,6 +630,8 @@ SQL);
         self::assertStringNotContainsString('./www:/var/www/html', $productionCompose);
         self::assertStringContainsString('APP_ENV: production', $productionCompose);
         self::assertStringContainsString('APP_DEBUG: "0"', $productionCompose);
+        self::assertStringNotContainsString('MYSQL_ROOT_HOST', $productionCompose);
+        self::assertStringNotContainsString('MYSQL_ROOT_HOST=%', $productionCompose);
         self::assertStringContainsString('FROM composer:2 AS dependencies', $productionDockerfile);
         self::assertStringContainsString('composer install --no-dev', $productionDockerfile);
         self::assertStringContainsString('display_errors = Off', $productionIni);
