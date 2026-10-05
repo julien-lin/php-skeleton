@@ -82,6 +82,8 @@ final class InstallerGenerationTest extends TestCase
         self::assertFileExists($this->projectDir . '/migrations/20261005_create_remember_tokens.sql');
         $index = (string) file_get_contents($this->projectDir . '/public/index.php');
         self::assertStringContainsString('EntityManager', $index);
+        self::assertStringContainsString('getConnection()->getPdo()', $index);
+        self::assertStringContainsString('Connexion à la base de données impossible', $index);
         self::assertStringContainsString('AuthController::class', $index);
 
         $authController = (string) file_get_contents($this->projectDir . '/src/Controller/AuthController.php');

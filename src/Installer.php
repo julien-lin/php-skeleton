@@ -2614,7 +2614,19 @@ PHP;
 // CONCEPT : Singleton = une seule instance partagée dans toute l'application
 // Utile pour les services coûteux (connexion DB, etc.)
 $container->singleton(EntityManager::class, function() use ($dbConfig) {
-    return new EntityManager($dbConfig);
+    try {
+        $entityManager = new EntityManager($dbConfig);
+        // Établir la connexion ici pour remonter une erreur exploitable
+        // avant l'exécution d'une requête métier.
+        $entityManager->getConnection()->getPdo();
+        return $entityManager;
+    } catch (\Throwable $exception) {
+        throw new \RuntimeException(
+            'Connexion à la base de données impossible. Vérifiez DB_HOST, DB_PORT, DB_NAME, DB_USER et DB_PASS.',
+            0,
+            $exception
+        );
+    }
 });
 PHP;
         }

@@ -304,8 +304,8 @@ Cette checklist couvre l’optimisation de `php-skeleton`, de son installateur, 
 - [x] Générer la configuration de connexion sans secret en dur.
 - [x] Générer l’enregistrement unique de l’EntityManager.
 - [x] Générer les répertoires et conventions d’entités, repositories et migrations.
-- [ ] Utiliser la commande officielle de migration fournie par la bibliothèque.
-- [ ] Ajouter un contrôle de connexion explicite et exploitable.
+- [x] Utiliser la commande officielle de migration fournie par la bibliothèque.
+- [x] Ajouter un contrôle de connexion explicite et exploitable.
 - [x] Ajouter un smoke test de migration sur une MariaDB temporaire dans Docker.
 - [ ] Tester les erreurs de connexion et de configuration.
 
