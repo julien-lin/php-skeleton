@@ -2431,7 +2431,7 @@ HTML;
 
         return Response::json([
             'id' => $user?->getAuthIdentifier(),
-            'email' => method_exists($user, 'getEmail') ? $user->getEmail() : null,
+            'email' => $user !== null && method_exists($user, 'getEmail') ? $user->getEmail() : null,
             'roles' => $user?->getAuthRoles(),
         ]);
     }

@@ -18,6 +18,8 @@ et ce projet adhère à [Semantic Versioning](https://semver.org/lang/fr/).
 - Le profil API cible validation et limitation de débit sur `/api` sans compter la route `/health`.
 - Le bootstrap Doctrine vérifie explicitement la connexion et remonte une erreur de configuration contextualisée.
 - Les tests du profil Doctrine couvrent les variables DB manquantes et la lecture des valeurs depuis `.env`.
+- Ajout d’un smoke test Auth avec installation des dépendances, formulaire de connexion, identifiants invalides et déconnexion.
+- Correction de la réponse `/account` pour les visiteurs non authentifiés.
 
 ## [1.5.13] - 2025-01-XX
 

@@ -320,6 +320,7 @@ Cette checklist couvre l’optimisation de `php-skeleton`, de son installateur, 
 - [ ] Ajouter les middlewares invité, rôle et permission uniquement lorsque requis.
 - [x] Protéger une route d’exemple par middleware de groupe de route.
 - [ ] Tester inscription, connexion, déconnexion, session expirée et accès interdit.
+- [x] Tester le contrôleur Auth généré : formulaire, identifiants invalides, déconnexion et accès invité.
 - [ ] Vérifier le stockage sécurisé des mots de passe et tokens.
 
 ### P1 — Profil API

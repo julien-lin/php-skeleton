@@ -92,6 +92,35 @@ final class InstallerGenerationTest extends TestCase
         self::assertStringContainsString('new AuthMiddleware()', $authController);
     }
 
+    public function testAuthProfileResolvesGeneratedController(): void
+    {
+        $reflection = new ReflectionClass(Installer::class);
+        $this->invokeSilently($reflection, 'createLocalStructure', $this->projectDir, true, true);
+        $this->invoke($reflection, 'copyComposerJson', $this->projectDir, $this->projectDir, true, true);
+        $this->runComposer($this->projectDir, 'install', '--no-dev', '--no-interaction', '--prefer-dist');
+
+        require_once $this->projectDir . '/vendor/autoload.php';
+
+        $entityManager = new \JulienLinard\Doctrine\EntityManager([
+            'driver' => 'sqlite',
+            'dbname' => ':memory:',
+        ]);
+        $auth = new \JulienLinard\Auth\AuthManager([
+            'user_class' => \App\Entity\User::class,
+            'entity_manager' => $entityManager,
+        ]);
+        $controller = new \App\Controller\AuthController($auth);
+
+        self::assertSame(200, $controller->loginForm()->getStatusCode());
+
+        $invalidLogin = $controller->login(new \JulienLinard\Router\Request('/login', 'POST'));
+        self::assertSame(422, $invalidLogin->getStatusCode());
+        self::assertSame('application/json', $invalidLogin->getHeaders()['content-type'] ?? null);
+
+        self::assertSame(200, $controller->logout()->getStatusCode());
+        self::assertSame(200, $controller->account()->getStatusCode());
+    }
+
     public function testDatabaseConfigurationRejectsMissingSecrets(): void
     {
         $reflection = new ReflectionClass(Installer::class);
