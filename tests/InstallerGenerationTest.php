@@ -463,6 +463,39 @@ SQL);
         }
     }
 
+    public function testDatabaseConfigurationRejectsInvalidPorts(): void
+    {
+        $reflection = new ReflectionClass(Installer::class);
+        $this->invokeSilently($reflection, 'createLocalStructure', $this->projectDir, true, false);
+
+        $values = [
+            'DB_NAME' => 'test_db',
+            'DB_USER' => 'test_user',
+            'DB_PASS' => 'test_password',
+            'DB_HOST' => '127.0.0.1',
+            'DB_PORT' => 'not-a-port',
+        ];
+        $original = [];
+        foreach ($values as $key => $value) {
+            $original[$key] = getenv($key);
+            putenv($key . '=' . $value);
+        }
+
+        try {
+            $this->expectException(\RuntimeException::class);
+            $this->expectExceptionMessage('Port de base de données invalide');
+            require $this->projectDir . '/config/database.php';
+        } finally {
+            foreach ($original as $key => $value) {
+                if ($value === false) {
+                    putenv($key);
+                } else {
+                    putenv($key . '=' . $value);
+                }
+            }
+        }
+    }
+
     public function testGeneratedAuthBootstrapReportsConnectionFailure(): void
     {
         $reflection = new ReflectionClass(Installer::class);

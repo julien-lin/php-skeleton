@@ -263,7 +263,7 @@ Cette checklist couvre l’optimisation de `php-skeleton`, de son installateur, 
 
 - [ ] Centraliser les noms de variables d’environnement.
 - [ ] Valider les types, valeurs obligatoires, ports et URLs.
-- [ ] Refuser les valeurs invalides plutôt que de les convertir silencieusement.
+- [x] Refuser les valeurs invalides plutôt que de les convertir silencieusement.
 - [ ] Distinguer les erreurs de configuration locales des erreurs de configuration production.
 - [x] Vérifier qu’une configuration de base de données complète est présente avant d’activer Doctrine.
 - [x] Vérifier qu’un secret d’authentification est présent avant d’activer l’authentification.

@@ -1012,8 +1012,18 @@ $dbPassword = $getFirstEnv(['DB_PASS', 'MYSQL_PASSWORD']);
 $dbHost = $getFirstEnv(['DB_HOST', 'MARIADB_CONTAINER'], 'mariadb_app');
 $dbPort = $getFirstEnv(['DB_PORT', 'MARIADB_PORT'], '3306');
 
-// Convertir le port en int si c'est une string
-$dbPort = is_numeric($dbPort) ? (int)$dbPort : 3306;
+// Valider explicitement le port au lieu de remplacer silencieusement une valeur invalide.
+$validatedPort = filter_var(
+    $dbPort,
+    FILTER_VALIDATE_INT,
+    ['options' => ['min_range' => 1, 'max_range' => 65535]]
+);
+if ($validatedPort === false) {
+    throw new \RuntimeException(
+        "Port de base de données invalide: {$dbPort}. Utilisez un entier compris entre 1 et 65535."
+    );
+}
+$dbPort = $validatedPort;
 
 return [
     'driver' => 'mysql',
