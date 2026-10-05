@@ -222,6 +222,47 @@ class InstallerSecurityTest extends TestCase
         } catch (\RuntimeException $exception) {
             self::assertStringContainsString('Collision de ports Docker', $exception->getMessage());
         }
+
+        $invalid = $valid;
+        $invalid['MYSQL_PASSWORD'] = "secret\nwith-control-character";
+        try {
+            $method->invoke(null, $invalid, true);
+            self::fail('Un secret Docker contenant un caractère de contrôle doit être rejeté.');
+        } catch (\RuntimeException $exception) {
+            self::assertStringContainsString('MYSQL_PASSWORD', $exception->getMessage());
+        }
+
+        $invalid = $valid;
+        $invalid['PHP_DISPLAY_ERRORS'] = 'maybe';
+        try {
+            $method->invoke(null, $invalid, true);
+            self::fail('Une valeur PHP_DISPLAY_ERRORS inconnue doit être rejetée.');
+        } catch (\RuntimeException $exception) {
+            self::assertStringContainsString('PHP_DISPLAY_ERRORS', $exception->getMessage());
+        }
+    }
+
+    public function testInvalidProjectNameIsRejected(): void
+    {
+        $parentDir = sys_get_temp_dir() . '/php-skeleton-invalid-name-' . bin2hex(random_bytes(4));
+        $tempDir = $parentDir . '/!!!';
+        mkdir($parentDir, 0755, true);
+        mkdir($tempDir, 0755, true);
+
+        try {
+            $this->expectException(\RuntimeException::class);
+            $this->expectExceptionMessage('Nom de projet invalide');
+            $this->reflection->getMethod('copyComposerJson')->invoke(null, $tempDir, $tempDir, false, false);
+        } finally {
+            $this->removeDirectory($parentDir);
+        }
+    }
+
+    public function testIncompatibleProfileOptionsAreRejected(): void
+    {
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('nécessitent le profil Doctrine');
+        $this->reflection->getMethod('validateProfileOptions')->invoke(null, false, true, false);
     }
 
     public function testCompletionSummaryListsProfilesWithoutSecrets(): void

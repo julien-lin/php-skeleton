@@ -227,11 +227,11 @@ Cette checklist couvre l’optimisation de `php-skeleton`, de son installateur, 
 
 ### P1 — Entrées utilisateur
 
-- [ ] Valider les noms de projet, namespaces, ports, hôtes, noms de bases et identifiants.
+- [x] Valider les noms de projet, namespaces, ports, hôtes, noms de bases et identifiants.
 - [x] Refuser les valeurs contenant des séparateurs de chemin ou des caractères de contrôle.
 - [ ] Définir des valeurs par défaut sûres et cohérentes entre CLI, Docker et `.env`.
 - [x] Vérifier les collisions de ports avant de générer les fichiers Docker.
-- [ ] Vérifier que les options incompatibles ne peuvent pas être sélectionnées ensemble.
+- [x] Vérifier que les options incompatibles ne peuvent pas être sélectionnées ensemble.
 - [x] Produire un résumé final des choix sans afficher de secret.
 
 ---
@@ -430,7 +430,7 @@ Cette checklist couvre l’optimisation de `php-skeleton`, de son installateur, 
 
 - [x] Corriger les dépréciations PHPUnit existantes et supprimer les appels Reflection obsolètes des tests.
 - [ ] Augmenter la couverture des cas d’échec de l’installateur.
-- [ ] Tester la validation des entrées utilisateur.
+- [x] Tester la validation des entrées utilisateur.
 - [ ] Tester la sérialisation des fichiers `.env`.
 - [x] Tester les valeurs par défaut sûres.
 - [x] Tester le registre des dépendances par profil.

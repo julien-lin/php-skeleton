@@ -28,6 +28,7 @@ class Installer
         if ($installAuth || $installApi) {
             $installDoctrine = true;
         }
+        self::validateProfileOptions($installDoctrine, $installAuth, $installApi);
         
         $baseDir = self::getProjectRoot();
 
@@ -377,6 +378,25 @@ class Installer
     {
         if (!preg_match('/^[a-z0-9][a-z0-9_.-]*\/[a-z0-9][a-z0-9_.-]*$/i', $package)) {
             throw new \RuntimeException("Commande non autorisée: package {$package}");
+        }
+    }
+
+    private static function validateProfileOptions(bool $installDoctrine, bool $installAuth, bool $installApi): void
+    {
+        if (($installAuth || $installApi) && !$installDoctrine) {
+            throw new \RuntimeException(
+                'Les profils Auth et API nécessitent le profil Doctrine.'
+            );
+        }
+    }
+
+    private static function validateProjectName(string $projectName): void
+    {
+        $normalizedName = strtolower(trim((string) preg_replace('/[^a-z0-9]+/i', '-', $projectName), '-'));
+        if ($normalizedName === '' || strlen($normalizedName) > 64) {
+            throw new \RuntimeException(
+                "Nom de projet invalide: {$projectName}. Utilisez au moins une lettre ou un chiffre."
+            );
         }
     }
     
@@ -1389,6 +1409,7 @@ PHP;
         }
 
         $projectName = basename($baseDir);
+        self::validateProjectName($projectName);
         $targetComposer = $targetDir . '/composer.json';
 
         if (is_file($targetComposer)) {
@@ -1988,6 +2009,17 @@ ENV;
         }
         self::validateDatabaseIdentifier('MYSQL_DATABASE', 'nom de la base de données', $data['MYSQL_DATABASE'] ?? null);
         self::validateDatabaseIdentifier('MYSQL_USER', 'utilisateur MariaDB', $data['MYSQL_USER'] ?? null);
+
+        foreach (['MYSQL_ROOT_PASSWORD', 'MYSQL_PASSWORD'] as $key) {
+            if (array_key_exists($key, $data)) {
+                self::validateSecretInput($key, $data[$key]);
+            }
+        }
+
+        if (array_key_exists('PHP_DISPLAY_ERRORS', $data)
+            && !in_array(strtolower((string) $data['PHP_DISPLAY_ERRORS']), ['on', 'off'], true)) {
+            throw new \RuntimeException('PHP_DISPLAY_ERRORS doit valoir On ou Off.');
+        }
     }
 
     private static function validateDockerIdentifier(string $key, string $label, mixed $value): void
@@ -2021,6 +2053,15 @@ ENV;
         if (!is_string($value) || !preg_match('/^[a-zA-Z0-9_]{1,64}$/', $value)) {
             throw new \RuntimeException(
                 "Valeur invalide pour {$label} ({$key}). Utilisez uniquement des lettres, chiffres et underscores."
+            );
+        }
+    }
+
+    private static function validateSecretInput(string $key, mixed $value): void
+    {
+        if (!is_string($value) || $value === '' || strlen($value) > 255 || preg_match('/[\x00-\x1F\x7F]/', $value)) {
+            throw new \RuntimeException(
+                "Valeur invalide pour {$key}. La valeur doit être non vide et ne contenir aucun caractère de contrôle."
             );
         }
     }

@@ -46,6 +46,7 @@ et ce projet adhère à [Semantic Versioning](https://semver.org/lang/fr/).
 - Les middlewares générés séparent désormais les groupes web et API, avec un ordre documenté et sans CSRF sur l’API stateless.
 - L’installateur propose `PHP_SKELETON_VERBOSE=1` et masque les valeurs sensibles dans ses sorties détaillées.
 - Les fichiers générés sont refusés lorsqu’ils contiennent des marqueurs de template non résolus.
+- Les noms de projet, secrets Docker, options de profils et paramètres d’affichage PHP sont désormais validés avant génération.
 - Correction de la réponse `/account` pour les visiteurs non authentifiés.
 
 ## [1.5.13] - 2025-01-XX
