@@ -672,6 +672,12 @@ SQL);
         self::assertStringContainsString('display_errors = Off', $productionIni);
         self::assertStringContainsString('opcache.validate_timestamps = 0', $productionIni);
 
+        $applicationEnvExample = (string) file_get_contents($this->projectDir . '/www/.env.example');
+        self::assertStringContainsString('DB_HOST=mariadb_app', $applicationEnvExample);
+        self::assertStringContainsString('DB_PORT=3306', $applicationEnvExample);
+        self::assertStringContainsString('DB_NAME=app_db', $applicationEnvExample);
+        self::assertStringNotContainsString('MARIADB_PORT=', $applicationEnvExample);
+
         self::assertFileExists($this->projectDir . '/www/.env.production.example');
         $productionEnv = (string) file_get_contents($this->projectDir . '/www/.env.production.example');
         self::assertStringContainsString("APP_ENV=production", $productionEnv);

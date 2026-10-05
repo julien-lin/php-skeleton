@@ -243,7 +243,7 @@ Cette checklist couvre l’optimisation de `php-skeleton`, de son installateur, 
 - [x] Générer systématiquement un `.env.example` complet pour le profil local.
 - [x] Générer un `.env` local uniquement selon une règle documentée et sûre.
 - [x] Vérifier que le bootstrap du profil base peut démarrer avec les fichiers effectivement générés.
-- [ ] Corriger la divergence entre l’environnement local et l’environnement Docker.
+- [x] Corriger la divergence entre l’environnement local et l’environnement Docker.
 - [x] Rendre la configuration Docker conditionnelle au profil sélectionné.
 - [x] Autoriser les hôtes locaux valides de base de données lorsque l’installation utilise la machine hôte.
 - [x] Vérifier les extensions PHP indispensables avant le démarrage.

@@ -1628,10 +1628,13 @@ ENV;
         $wwwContent = "# Configuration Application\n";
         $wwwContent .= "# Généré automatiquement par l'installateur\n\n";
         if ($hasDatabase) {
-            $wwwContent .= "MARIADB_CONTAINER={$data['MARIADB_CONTAINER']}\n";
-            $wwwContent .= "MYSQL_DATABASE={$data['MYSQL_DATABASE']}\n";
-            $wwwContent .= "MYSQL_USER={$data['MYSQL_USER']}\n";
-            $wwwContent .= "MYSQL_PASSWORD={$data['MYSQL_PASSWORD']}\n";
+            // Le conteneur applicatif utilise les mêmes noms DB_* que l'installation locale.
+            // MARIADB_PORT reste un port hôte et ne doit pas être réutilisé dans le réseau Docker.
+            $wwwContent .= "DB_HOST={$data['MARIADB_CONTAINER']}\n";
+            $wwwContent .= "DB_PORT=3306\n";
+            $wwwContent .= "DB_NAME={$data['MYSQL_DATABASE']}\n";
+            $wwwContent .= "DB_USER={$data['MYSQL_USER']}\n";
+            $wwwContent .= "DB_PASS={$data['MYSQL_PASSWORD']}\n";
         }
         $wwwContent .= "PHP_ERROR_REPORTING={$data['PHP_ERROR_REPORTING']}\n";
         $wwwContent .= "PHP_DISPLAY_ERRORS={$data['PHP_DISPLAY_ERRORS']}\n";
@@ -1714,10 +1717,11 @@ ENV;
 # Configuration Base de données
 # ============================================
 # Host = nom du service Docker pour la connexion interne
-MARIADB_CONTAINER=mariadb_app
-MYSQL_DATABASE=app_db
-MYSQL_USER=app_user
-MYSQL_PASSWORD=change-me
+DB_HOST=mariadb_app
+DB_PORT=3306
+DB_NAME=app_db
+DB_USER=app_user
+DB_PASS=change-me
 
 ENV;
         }
