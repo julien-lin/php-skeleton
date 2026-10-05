@@ -39,6 +39,11 @@ final class InstallerGenerationTest extends TestCase
         self::assertFileExists($this->projectDir . '/src/Controller/HomeController.php');
         self::assertStringContainsString("path: '/health'", (string) file_get_contents($this->projectDir . '/src/Controller/HomeController.php'));
         self::assertFileDoesNotExist($this->projectDir . '/config/database.php');
+        self::assertFileDoesNotExist($this->projectDir . '/src/Entity/User.php');
+        self::assertFileDoesNotExist($this->projectDir . '/src/Entity/Product.php');
+        self::assertFileDoesNotExist($this->projectDir . '/src/Controller/AuthController.php');
+        self::assertFileDoesNotExist($this->projectDir . '/src/Controller/ProductController.php');
+        self::assertFileDoesNotExist($this->projectDir . '/views/home/index.html.vis');
 
         $composer = json_decode((string) file_get_contents($this->projectDir . '/composer.json'), true, 512, JSON_THROW_ON_ERROR);
         self::assertSame('^1.4', $composer['require']['julienlinard/core-php']);
@@ -150,6 +155,10 @@ final class InstallerGenerationTest extends TestCase
         self::assertArrayNotHasKey('julienlinard/auth-php', $composer['require']);
         self::assertArrayNotHasKey('julienlinard/php-api', $composer['require']);
         self::assertFileExists($this->projectDir . '/config/database.php');
+        self::assertFileDoesNotExist($this->projectDir . '/src/Entity/User.php');
+        self::assertFileDoesNotExist($this->projectDir . '/src/Controller/AuthController.php');
+        self::assertFileDoesNotExist($this->projectDir . '/src/Entity/Product.php');
+        self::assertFileDoesNotExist($this->projectDir . '/src/Controller/ProductController.php');
 
         $entityManager = new \JulienLinard\Doctrine\EntityManager([
             'driver' => 'sqlite',
@@ -164,6 +173,7 @@ final class InstallerGenerationTest extends TestCase
         $reflection = new ReflectionClass(Installer::class);
         $this->invokeSilently($reflection, 'createLocalStructure', $this->projectDir, true, true);
         $this->invoke($reflection, 'copyComposerJson', $this->projectDir, $this->projectDir, true, true);
+        $this->runComposer($this->projectDir, 'validate', '--no-check-publish', '--no-interaction');
 
         $composer = json_decode((string) file_get_contents($this->projectDir . '/composer.json'), true, 512, JSON_THROW_ON_ERROR);
         self::assertArrayHasKey('julienlinard/doctrine-php', $composer['require']);
@@ -174,6 +184,8 @@ final class InstallerGenerationTest extends TestCase
         self::assertFileExists($this->projectDir . '/src/Controller/AuthController.php');
         self::assertFileExists($this->projectDir . '/migrations/20261005_create_users.sql');
         self::assertFileExists($this->projectDir . '/migrations/20261005_create_remember_tokens.sql');
+        self::assertFileDoesNotExist($this->projectDir . '/src/Entity/Product.php');
+        self::assertFileDoesNotExist($this->projectDir . '/src/Controller/ProductController.php');
         $index = (string) file_get_contents($this->projectDir . '/public/index.php');
         self::assertStringContainsString('EntityManager', $index);
         self::assertStringContainsString('getConnection()->getPdo()', $index);
@@ -347,6 +359,8 @@ SQL);
         self::assertFileExists($this->projectDir . '/src/Entity/Product.php');
         self::assertFileExists($this->projectDir . '/src/Controller/ProductController.php');
         self::assertFileExists($this->projectDir . '/migrations/20261005_create_products.sql');
+        self::assertFileDoesNotExist($this->projectDir . '/src/Entity/User.php');
+        self::assertFileDoesNotExist($this->projectDir . '/src/Controller/AuthController.php');
         self::assertStringContainsString('API_CORS_ORIGINS=', (string) file_get_contents($this->projectDir . '/.env'));
         self::assertStringContainsString('API_CORS_ORIGINS=', (string) file_get_contents($this->projectDir . '/.env.example'));
 
@@ -393,6 +407,7 @@ SQL);
         $reflection = new ReflectionClass(Installer::class);
         $this->invokeSilently($reflection, 'createLocalStructure', $this->projectDir, false, false, false, true);
         $this->invoke($reflection, 'copyComposerJson', $this->projectDir, $this->projectDir, false, false, false, true);
+        $this->runComposer($this->projectDir, 'validate', '--no-check-publish', '--no-interaction');
 
         $composer = json_decode((string) file_get_contents($this->projectDir . '/composer.json'), true, 512, JSON_THROW_ON_ERROR);
         self::assertSame('^1.0', $composer['require']['julienlinard/php-vision']);

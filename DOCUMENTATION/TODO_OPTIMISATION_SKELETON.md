@@ -433,7 +433,7 @@ Cette checklist couvre l’optimisation de `php-skeleton`, de son installateur, 
 - [ ] Tester la validation des entrées utilisateur.
 - [ ] Tester la sérialisation des fichiers `.env`.
 - [x] Tester les valeurs par défaut sûres.
-- [ ] Tester le registre des dépendances par profil.
+- [x] Tester le registre des dépendances par profil.
 - [ ] Tester l’ordre et le contrat des middlewares.
 
 ### P0 — Tests de génération
@@ -441,16 +441,16 @@ Cette checklist couvre l’optimisation de `php-skeleton`, de son installateur, 
 - [x] Générer un projet base dans un répertoire temporaire.
 - [x] Générer un projet sécurisé dans un répertoire temporaire.
 - [x] Générer un projet base de données dans un répertoire temporaire.
-- [ ] Générer un projet authentifié dans un répertoire temporaire.
+- [x] Générer un projet authentifié dans un répertoire temporaire.
 - [x] Générer un projet API dans un répertoire temporaire.
 - [x] Générer un projet avec l’interface optionnelle dans un répertoire temporaire.
-- [ ] Vérifier les fichiers attendus pour chaque profil.
-- [ ] Vérifier l’absence des fichiers et dépendances non sélectionnés.
+- [x] Vérifier les fichiers attendus pour chaque profil.
+- [x] Vérifier l’absence des fichiers et dépendances non sélectionnés.
 - [ ] Vérifier que le projet généré ne référence aucun placeholder non résolu.
 
 ### P0 — Smoke tests générés
 
-- [ ] Exécuter `composer validate` dans chaque projet généré.
+- [x] Exécuter `composer validate` dans chaque projet généré.
 - [ ] Exécuter les tests du projet généré.
 - [ ] Démarrer l’application générée.
 - [ ] Appeler la route de santé ou la route d’accueil.
