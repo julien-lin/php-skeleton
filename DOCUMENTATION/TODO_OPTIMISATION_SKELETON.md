@@ -246,7 +246,7 @@ Cette checklist couvre l’optimisation de `php-skeleton`, de son installateur, 
 - [ ] Corriger la divergence entre l’environnement local et l’environnement Docker.
 - [x] Rendre la configuration Docker conditionnelle au profil sélectionné.
 - [x] Autoriser les hôtes locaux valides de base de données lorsque l’installation utilise la machine hôte.
-- [ ] Vérifier les extensions PHP indispensables avant le démarrage.
+- [x] Vérifier les extensions PHP indispensables avant le démarrage.
 - [x] Produire une erreur lisible lorsque l’environnement est incomplet.
 
 ### P0 — Secrets et valeurs par défaut

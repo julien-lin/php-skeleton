@@ -48,6 +48,7 @@ final class InstallerGenerationTest extends TestCase
         $composer = json_decode((string) file_get_contents($this->projectDir . '/composer.json'), true, 512, JSON_THROW_ON_ERROR);
         self::assertSame('^1.4', $composer['require']['julienlinard/core-php']);
         self::assertSame('^1.4', $composer['require']['julienlinard/php-router']);
+        self::assertSame('*', $composer['require']['ext-mbstring']);
         self::assertArrayNotHasKey('julienlinard/php-validator', $composer['require']);
         self::assertMatchesRegularExpression('/^APP_SECRET=[a-f0-9]{64}$/m', (string) file_get_contents($this->projectDir . '/.env'));
     }
@@ -57,6 +58,47 @@ final class InstallerGenerationTest extends TestCase
         $reflection = new ReflectionClass(Installer::class);
         $this->invokeSilently($reflection, 'createLocalStructure', $this->projectDir, false, false);
         require_once $this->projectDir . '/src/Service/EnvValidator.php';
+
+        $validatorSource = (string) file_get_contents($this->projectDir . '/src/Service/EnvValidator.php');
+        self::assertStringContainsString('extension_loaded($extension)', $validatorSource);
+        self::assertStringContainsString("'mbstring'", $validatorSource);
+
+        $probeValidator = $this->projectDir . '/EnvValidatorProbe.php';
+        file_put_contents(
+            $probeValidator,
+            str_replace("'mbstring'", "'php_skeleton_missing_extension'", $validatorSource)
+        );
+
+        $extensionProbe = $this->projectDir . '/check-extensions.php';
+        file_put_contents($extensionProbe, <<<'PHP'
+<?php
+
+require __DIR__ . '/EnvValidatorProbe.php';
+
+try {
+    \App\Service\EnvValidator::validate();
+} catch (\RuntimeException $exception) {
+    echo $exception->getMessage();
+    exit(0);
+}
+
+exit(1);
+PHP);
+        $probe = proc_open(
+            [PHP_BINARY, $extensionProbe],
+            [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+            $probePipes,
+            $this->projectDir
+        );
+        self::assertIsResource($probe);
+        $probeOutput = stream_get_contents($probePipes[1]) . stream_get_contents($probePipes[2]);
+        fclose($probePipes[1]);
+        fclose($probePipes[2]);
+        self::assertSame(0, proc_close($probe));
+        self::assertStringContainsString(
+            'Extensions PHP requises manquantes: php_skeleton_missing_extension',
+            $probeOutput
+        );
 
         $env = (string) file_get_contents($this->projectDir . '/.env');
         self::assertMatchesRegularExpression('/^APP_SECRET=[a-f0-9]{64}$/m', $env);
@@ -159,7 +201,10 @@ final class InstallerGenerationTest extends TestCase
         $this->invoke($reflection, 'copyComposerJson', $this->projectDir, $this->projectDir, false, false, false, false, true);
 
         $composer = json_decode((string) file_get_contents($this->projectDir . '/composer.json'), true, 512, JSON_THROW_ON_ERROR);
-        self::assertSame(['php', 'julienlinard/core-php', 'julienlinard/php-router'], array_keys($composer['require']));
+        self::assertSame(
+            ['php', 'julienlinard/core-php', 'julienlinard/php-router', 'ext-mbstring'],
+            array_keys($composer['require'])
+        );
 
         $index = (string) file_get_contents($this->projectDir . '/public/index.php');
         self::assertStringContainsString('new RequestValidationMiddleware(10_485_760)', $index);
@@ -219,6 +264,8 @@ final class InstallerGenerationTest extends TestCase
         self::assertArrayHasKey('julienlinard/doctrine-php', $composer['require']);
         self::assertArrayNotHasKey('julienlinard/auth-php', $composer['require']);
         self::assertArrayNotHasKey('julienlinard/php-api', $composer['require']);
+        self::assertSame('*', $composer['require']['ext-pdo_mysql']);
+        self::assertSame('*', $composer['require']['ext-mbstring']);
         self::assertFileExists($this->projectDir . '/config/database.php');
         self::assertMatchesRegularExpression('/^DB_PASS=[a-f0-9]{32}$/m', (string) file_get_contents($this->projectDir . '/.env'));
         self::assertStringNotContainsString('DB_PASS=change-me', (string) file_get_contents($this->projectDir . '/.env'));
@@ -245,6 +292,8 @@ final class InstallerGenerationTest extends TestCase
         $composer = json_decode((string) file_get_contents($this->projectDir . '/composer.json'), true, 512, JSON_THROW_ON_ERROR);
         self::assertArrayHasKey('julienlinard/doctrine-php', $composer['require']);
         self::assertSame('*', $composer['require']['ext-pdo']);
+        self::assertSame('*', $composer['require']['ext-pdo_mysql']);
+        self::assertSame('*', $composer['require']['ext-mbstring']);
         self::assertSame('^1.3', $composer['require']['julienlinard/auth-php']);
         self::assertFileExists($this->projectDir . '/config/database.php');
         self::assertFileExists($this->projectDir . '/src/Entity/User.php');

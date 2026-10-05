@@ -474,7 +474,7 @@ class Installer
         if ($installApi) {
             self::createApiFiles($wwwDir);
         }
-        self::createBootstrapServices($wwwDir);
+        self::createBootstrapServices($wwwDir, $installDoctrine || $installAuth || $installApi);
         self::createPublicIndex($publicDir, $installDoctrine, $installAuth, $installApi, $installSecure);
         self::createWwwGitignore($wwwDir);
         
@@ -626,20 +626,28 @@ class Installer
         self::fixPermissions($wwwDir, true);
     }
     
-    private static function createBootstrapServices(string $baseDir): void
+    private static function createBootstrapServices(string $baseDir, bool $requiresDatabase = false): void
     {
         $serviceDir = $baseDir . '/src/Service';
         if (!is_dir($serviceDir)) {
             mkdir($serviceDir, 0755, true);
         }
         
-        self::createEnvValidator($serviceDir);
+        self::createEnvValidator($serviceDir, $requiresDatabase);
         self::createEventListenerService($serviceDir);
         self::createBootstrapService($serviceDir);
     }
     
-    private static function createEnvValidator(string $serviceDir): void
+    private static function createEnvValidator(string $serviceDir, bool $requiresDatabase): void
     {
+        $requiredExtensions = ['mbstring'];
+        if ($requiresDatabase) {
+            $requiredExtensions[] = 'pdo';
+            $requiredExtensions[] = 'pdo_mysql';
+        }
+
+        $requiredExtensionsCode = var_export($requiredExtensions, true);
+
         $content = <<<'PHP'
 <?php
 
@@ -665,8 +673,30 @@ class EnvValidator
      */
     public static function validate(): void
     {
+        self::validateExtensions();
         self::validateAppSecret();
         self::validateAppLocale();
+    }
+
+    /**
+     * Vérifie les extensions PHP indispensables au profil généré.
+     *
+     * @throws \RuntimeException Si une extension requise est absente
+     */
+    private static function validateExtensions(): void
+    {
+        $requiredExtensions = __REQUIRED_EXTENSIONS__;
+        $missingExtensions = array_values(array_filter(
+            $requiredExtensions,
+            static fn (string $extension): bool => !extension_loaded($extension)
+        ));
+
+        if ($missingExtensions !== []) {
+            throw new \RuntimeException(
+                'Extensions PHP requises manquantes: ' . implode(', ', $missingExtensions) . '. ' .
+                'Installez-les avant de démarrer l’application.'
+            );
+        }
     }
     
     /**
@@ -714,6 +744,8 @@ class EnvValidator
     }
 }
 PHP;
+
+        $content = str_replace('__REQUIRED_EXTENSIONS__', $requiredExtensionsCode, $content);
         
         file_put_contents($serviceDir . '/EnvValidator.php', $content);
     }
@@ -1032,7 +1064,10 @@ PHP;
         if ($hasDoctrine) {
             $require['julienlinard/doctrine-php'] = '^1.2';
             $require['ext-pdo'] = '*';
+            $require['ext-pdo_mysql'] = '*';
         }
+
+        $require['ext-mbstring'] = '*';
         
         if ($hasAuth) {
             $require['julienlinard/auth-php'] = '^1.3';
@@ -1235,7 +1270,7 @@ PHP;
             self::createApiFiles($baseDir);
         }
         self::createLocalEnvFiles($baseDir, $installDoctrine, $installApi);
-        self::createBootstrapServices($baseDir);
+        self::createBootstrapServices($baseDir, $installDoctrine || $installAuth || $installApi);
         self::createWwwGitignore($baseDir);
         
         self::createPublicIndex($publicDir, $installDoctrine, $installAuth, $installApi, $installSecure);
