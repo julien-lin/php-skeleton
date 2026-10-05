@@ -120,6 +120,21 @@ final class InstallerGenerationTest extends TestCase
         self::assertStringContainsString('new CompressionMiddleware([', $index);
         self::assertStringContainsString("'/storage/cache/rate-limit'", $index);
         self::assertStringContainsString("'hsts' => getenv('APP_ENV') === 'production'", $index);
+
+        $middlewareOrder = [
+            'new CsrfMiddleware()',
+            'new RequestValidationMiddleware(10_485_760)',
+            'new RateLimitMiddleware(100, 60',
+            'new SecurityHeadersMiddleware([',
+            'new CompressionMiddleware([',
+        ];
+        $previousPosition = -1;
+        foreach ($middlewareOrder as $middleware) {
+            $position = strpos($index, $middleware);
+            self::assertNotFalse($position, "Middleware absent du bootstrap généré : {$middleware}");
+            self::assertGreaterThan($previousPosition, $position, "Ordre inattendu pour le middleware : {$middleware}");
+            $previousPosition = $position;
+        }
     }
 
     public function testSecureProfileInstallsAndServesHealthRoute(): void
