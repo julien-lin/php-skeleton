@@ -66,8 +66,11 @@ final class InstallerGenerationTest extends TestCase
         $originalLocale = getenv('APP_LOCALE');
 
         try {
-            putenv('APP_SECRET=' . $secret);
+            putenv('APP_SECRET');
             putenv('APP_LOCALE=fr');
+            $this->expectRuntimeExceptionFromEnvValidator("APP_SECRET n'est pas défini");
+
+            putenv('APP_SECRET=' . $secret);
             \App\Service\EnvValidator::validate();
 
             putenv('APP_SECRET=too-short');

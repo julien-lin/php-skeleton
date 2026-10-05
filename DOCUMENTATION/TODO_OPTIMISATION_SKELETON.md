@@ -266,7 +266,7 @@ Cette checklist couvre l’optimisation de `php-skeleton`, de son installateur, 
 - [ ] Refuser les valeurs invalides plutôt que de les convertir silencieusement.
 - [ ] Distinguer les erreurs de configuration locales des erreurs de configuration production.
 - [x] Vérifier qu’une configuration de base de données complète est présente avant d’activer Doctrine.
-- [ ] Vérifier qu’un secret d’authentification est présent avant d’activer l’authentification.
+- [x] Vérifier qu’un secret d’authentification est présent avant d’activer l’authentification.
 
 ### P1 — Application et conteneur
 
