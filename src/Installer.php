@@ -1606,6 +1606,8 @@ ENV;
         }
         $envData['PHP_ERROR_REPORTING'] = self::askInput('PHP Error Reporting (E_ALL)', 'E_ALL');
         $envData['PHP_DISPLAY_ERRORS'] = self::askInput('PHP Display Errors (On/Off)', 'Off');
+
+        self::validateDockerConfiguration($envData, $hasDatabase);
         
         // Stocker les noms de conteneurs pour les utiliser dans docker-compose.yml
         self::$containerNames = ['apache' => $envData['APACHE_CONTAINER']];
@@ -1632,6 +1634,63 @@ ENV;
         fclose($handle);
         
         return empty($answer) ? $default : $answer;
+    }
+
+    /**
+     * Valide les valeurs saisies pour la configuration Docker.
+     *
+     * @param array<string, string> $data
+     * @throws \RuntimeException Si une valeur est invalide
+     */
+    private static function validateDockerConfiguration(array $data, bool $hasDatabase): void
+    {
+        foreach (['APACHE_CONTAINER' => 'nom du container Apache'] as $key => $label) {
+            self::validateDockerIdentifier($key, $label, $data[$key] ?? null);
+        }
+
+        self::validateDockerPort('APACHE_PORT', $data['APACHE_PORT'] ?? null);
+
+        if (!$hasDatabase) {
+            return;
+        }
+
+        self::validateDockerIdentifier('MARIADB_CONTAINER', 'nom du container MariaDB', $data['MARIADB_CONTAINER'] ?? null);
+        self::validateDockerPort('MARIADB_PORT', $data['MARIADB_PORT'] ?? null);
+        self::validateDatabaseIdentifier('MYSQL_DATABASE', 'nom de la base de données', $data['MYSQL_DATABASE'] ?? null);
+        self::validateDatabaseIdentifier('MYSQL_USER', 'utilisateur MariaDB', $data['MYSQL_USER'] ?? null);
+    }
+
+    private static function validateDockerIdentifier(string $key, string $label, mixed $value): void
+    {
+        if (!is_string($value) || !preg_match('/^[a-z0-9][a-z0-9_-]{0,62}$/i', $value)) {
+            throw new \RuntimeException(
+                "Valeur invalide pour {$label} ({$key}). Utilisez uniquement des lettres, chiffres, tirets et underscores."
+            );
+        }
+    }
+
+    private static function validateDockerPort(string $key, mixed $value): void
+    {
+        $port = filter_var(
+            $value,
+            FILTER_VALIDATE_INT,
+            ['options' => ['min_range' => 1, 'max_range' => 65535]]
+        );
+
+        if ($port === false) {
+            throw new \RuntimeException(
+                "Port invalide pour {$key}. Utilisez un entier compris entre 1 et 65535."
+            );
+        }
+    }
+
+    private static function validateDatabaseIdentifier(string $key, string $label, mixed $value): void
+    {
+        if (!is_string($value) || !preg_match('/^[a-zA-Z0-9_]{1,64}$/', $value)) {
+            throw new \RuntimeException(
+                "Valeur invalide pour {$label} ({$key}). Utilisez uniquement des lettres, chiffres et underscores."
+            );
+        }
     }
     
     private static function createEnvFile(array $data, bool $hasDatabase, bool $hasApi = false): void

@@ -228,7 +228,7 @@ Cette checklist couvre l’optimisation de `php-skeleton`, de son installateur, 
 ### P1 — Entrées utilisateur
 
 - [ ] Valider les noms de projet, namespaces, ports, hôtes, noms de bases et identifiants.
-- [ ] Refuser les valeurs contenant des séparateurs de chemin ou des caractères de contrôle.
+- [x] Refuser les valeurs contenant des séparateurs de chemin ou des caractères de contrôle.
 - [ ] Définir des valeurs par défaut sûres et cohérentes entre CLI, Docker et `.env`.
 - [ ] Vérifier les collisions de ports avant de générer les fichiers Docker.
 - [ ] Vérifier que les options incompatibles ne peuvent pas être sélectionnées ensemble.

@@ -166,6 +166,48 @@ class InstallerSecurityTest extends TestCase
         }
     }
 
+    public function testDockerConfigurationRejectsUnsafeValues(): void
+    {
+        $method = $this->reflection->getMethod('validateDockerConfiguration');
+        $valid = [
+            'APACHE_CONTAINER' => 'apache_app',
+            'APACHE_PORT' => '8080',
+            'MARIADB_CONTAINER' => 'mariadb_app',
+            'MARIADB_PORT' => '3307',
+            'MYSQL_DATABASE' => 'app_db',
+            'MYSQL_USER' => 'app_user',
+        ];
+
+        $method->invoke(null, $valid, true);
+
+        $invalid = $valid;
+        $invalid['APACHE_CONTAINER'] = 'apache;rm';
+        try {
+            $method->invoke(null, $invalid, true);
+            self::fail('Un nom de container contenant une commande doit être rejeté.');
+        } catch (\RuntimeException $exception) {
+            self::assertStringContainsString('Valeur invalide pour nom du container Apache', $exception->getMessage());
+        }
+
+        $invalid = $valid;
+        $invalid['MARIADB_PORT'] = '70000';
+        try {
+            $method->invoke(null, $invalid, true);
+            self::fail('Un port hors plage doit être rejeté.');
+        } catch (\RuntimeException $exception) {
+            self::assertStringContainsString('Port invalide pour MARIADB_PORT', $exception->getMessage());
+        }
+
+        $invalid = $valid;
+        $invalid['MYSQL_DATABASE'] = 'app/db';
+        try {
+            $method->invoke(null, $invalid, true);
+            self::fail('Un identifiant DB contenant un séparateur doit être rejeté.');
+        } catch (\RuntimeException $exception) {
+            self::assertStringContainsString('Valeur invalide pour nom de la base de données', $exception->getMessage());
+        }
+    }
+
     /**
      * Test que isExecutable ne permet pas l'injection
      */
