@@ -464,7 +464,7 @@ Cette checklist couvre l’optimisation de `php-skeleton`, de son installateur, 
 - [x] Exécuter `composer audit` sur le skeleton et sur les projets générés.
 - [x] Ajouter un test qui détecte les secrets en clair dans les fichiers générés.
 - [ ] Ajouter un test qui détecte les commandes destructives sur le répertoire cible.
-- [ ] Ajouter un test de relance de l’installateur.
+- [x] Ajouter un test de relance de l’installateur.
 - [x] Ajouter un test de projet cible non vide.
 - [ ] Ajouter un test d’échec de Composer et de rollback.
 - [ ] Ajouter un test de chemins contenant des espaces et caractères spéciaux.

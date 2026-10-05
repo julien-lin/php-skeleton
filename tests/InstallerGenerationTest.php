@@ -633,6 +633,20 @@ SQL);
         $this->invoke($reflection, 'copyComposerJson', $this->projectDir, $this->projectDir, false, false);
     }
 
+    public function testRerunningGenerationPreservesCustomizedGeneratedFiles(): void
+    {
+        $reflection = new ReflectionClass(Installer::class);
+        $this->invokeSilently($reflection, 'createLocalStructure', $this->projectDir, false, false);
+
+        $homeView = $this->projectDir . '/views/home/index.html.php';
+        $customView = "<!-- custom view -->\n";
+        file_put_contents($homeView, $customView);
+
+        $this->invokeSilently($reflection, 'createLocalStructure', $this->projectDir, false, false);
+
+        self::assertSame($customView, (string) file_get_contents($homeView));
+    }
+
     public function testDockerBaseProfileDoesNotGenerateDatabaseService(): void
     {
         $reflection = new ReflectionClass(Installer::class);

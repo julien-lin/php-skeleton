@@ -1212,7 +1212,7 @@ GITIGNORE;
 </div>
 VISION;
 
-            file_put_contents($homeDir . '/index.html.vis', $content);
+            self::writeGeneratedFile($homeDir . '/index.html.vis', $content);
             return;
         }
 
@@ -1249,7 +1249,7 @@ VISION;
 </div>
 PHP;
         
-        file_put_contents($homeDir . '/index.html.php', $content);
+        self::writeGeneratedFile($homeDir . '/index.html.php', $content);
     }
     
     private static function setupLocal(
@@ -2159,7 +2159,7 @@ RewriteRule ^(.*)$ index.php [QSA,L]
 </FilesMatch>
 HTACCESS;
         
-        file_put_contents($publicDir . '/.htaccess', $content);
+        self::writeGeneratedFile($publicDir . '/.htaccess', $content);
     }
     
     private static function createPublicIndex(
@@ -2868,7 +2868,7 @@ PHP;
 </head>
 <body class="bg-gray-100 min-h-screen">
 VISION;
-            file_put_contents($templatesDir . '/_header.html.php', $content);
+            self::writeGeneratedFile($templatesDir . '/_header.html.php', $content);
             return;
         }
 
@@ -2937,7 +2937,7 @@ VISION;
     <?php endif; ?>
 PHP;
         
-        file_put_contents($templatesDir . '/_header.html.php', $content);
+        self::writeGeneratedFile($templatesDir . '/_header.html.php', $content);
     }
     
     private static function createFooterTemplate(string $templatesDir): void
@@ -2947,7 +2947,7 @@ PHP;
 </html>
 PHP;
         
-        file_put_contents($templatesDir . '/_footer.html.php', $content);
+        self::writeGeneratedFile($templatesDir . '/_footer.html.php', $content);
     }
     
     private static function createAliases(string $baseDir): void
