@@ -1750,7 +1750,7 @@ YAML;
     container_name: \${MARIADB_CONTAINER:-{$mariadbService}}
     restart: unless-stopped
     ports:
-      - "\${MARIADB_PORT:-3306}:3306"
+      - "127.0.0.1:\${MARIADB_PORT:-3306}:3306"
     environment:
       - MYSQL_ROOT_PASSWORD=\${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD doit être défini}
       - MYSQL_DATABASE=\${MYSQL_DATABASE:?MYSQL_DATABASE doit être défini}

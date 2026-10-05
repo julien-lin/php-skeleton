@@ -193,7 +193,7 @@ docker compose exec mariadb_app /docker-entrypoint-initdb.d/restore.sh
 
 ### Accès depuis l'Extérieur
 
-Par défaut, MariaDB est accessible sur le port `3306` (configurable via `MARIADB_PORT` dans `.env`).
+En développement, MariaDB est accessible uniquement depuis la machine hôte sur `127.0.0.1:3306` (configurable via `MARIADB_PORT` dans `.env`). Elle n’est pas publiée sur toutes les interfaces réseau.
 
 Connexion depuis un client MySQL :
 

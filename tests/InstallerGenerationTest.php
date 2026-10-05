@@ -517,6 +517,8 @@ SQL);
         self::assertStringContainsString('mariadb_test:', $compose);
         self::assertStringContainsString('depends_on:', $compose);
         self::assertStringContainsString('MYSQL_ROOT_PASSWORD', $compose);
+        self::assertStringContainsString('127.0.0.1:${MARIADB_PORT:-3306}:3306', $compose);
+        self::assertStringNotContainsString('      - "${MARIADB_PORT:-3306}:3306"', $compose);
     }
 
     public function testDockerDevelopmentAndProductionConfigurationsAreSeparated(): void
