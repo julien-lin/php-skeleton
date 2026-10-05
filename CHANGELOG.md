@@ -47,6 +47,7 @@ et ce projet adhère à [Semantic Versioning](https://semver.org/lang/fr/).
 - L’installateur propose `PHP_SKELETON_VERBOSE=1` et masque les valeurs sensibles dans ses sorties détaillées.
 - Les fichiers générés sont refusés lorsqu’ils contiennent des marqueurs de template non résolus.
 - Les noms de projet, secrets Docker, options de profils et paramètres d’affichage PHP sont désormais validés avant génération.
+- Les variables d’environnement et de contexte utilisées par les templates sont documentées dans `DOCUMENTATION/TEMPLATES.md`.
 - Correction de la réponse `/account` pour les visiteurs non authentifiés.
 
 ## [1.5.13] - 2025-01-XX
