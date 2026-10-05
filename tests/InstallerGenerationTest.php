@@ -105,6 +105,38 @@ final class InstallerGenerationTest extends TestCase
         self::assertStringContainsString('MYSQL_ROOT_PASSWORD', $compose);
     }
 
+    public function testDockerDevelopmentAndProductionConfigurationsAreSeparated(): void
+    {
+        $reflection = new ReflectionClass(Installer::class);
+        $containerNames = $reflection->getProperty('containerNames');
+        $containerNames->setValue(null, ['apache' => 'apache_test', 'mariadb' => 'mariadb_test']);
+
+        mkdir($this->projectDir . '/www', 0755, true);
+        $this->invoke($reflection, 'createEnvExample', $this->projectDir, $this->projectDir . '/www', true);
+        $this->invoke($reflection, 'createDockerFiles', $this->projectDir, true);
+
+        $developmentCompose = (string) file_get_contents($this->projectDir . '/docker-compose.yml');
+        $productionCompose = (string) file_get_contents($this->projectDir . '/docker-compose.prod.yml');
+        $productionDockerfile = (string) file_get_contents($this->projectDir . '/apache/Dockerfile.prod');
+        $productionIni = (string) file_get_contents($this->projectDir . '/apache/custom-php-prod.ini');
+
+        self::assertStringContainsString('build: apache', $developmentCompose);
+        self::assertStringContainsString('./www:/var/www/html', $developmentCompose);
+        self::assertStringContainsString('dockerfile: apache/Dockerfile.prod', $productionCompose);
+        self::assertStringNotContainsString('./www:/var/www/html', $productionCompose);
+        self::assertStringContainsString('APP_ENV: production', $productionCompose);
+        self::assertStringContainsString('APP_DEBUG: "0"', $productionCompose);
+        self::assertStringContainsString('FROM composer:2 AS dependencies', $productionDockerfile);
+        self::assertStringContainsString('composer install --no-dev', $productionDockerfile);
+        self::assertStringContainsString('display_errors = Off', $productionIni);
+        self::assertStringContainsString('opcache.validate_timestamps = 0', $productionIni);
+
+        self::assertFileExists($this->projectDir . '/www/.env.production.example');
+        $productionEnv = (string) file_get_contents($this->projectDir . '/www/.env.production.example');
+        self::assertStringContainsString("APP_ENV=production", $productionEnv);
+        self::assertStringContainsString("APP_DEBUG=0", $productionEnv);
+    }
+
     private function invoke(ReflectionClass $reflection, string $method, mixed ...$arguments): void
     {
         $reflection->getMethod($method)->invoke(null, ...$arguments);

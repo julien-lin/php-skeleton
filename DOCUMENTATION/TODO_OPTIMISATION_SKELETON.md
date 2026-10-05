@@ -51,7 +51,7 @@ Cette checklist couvre l’optimisation de `php-skeleton`, de son installateur, 
 - [x] Valider le profil Doctrine avec MariaDB dans Docker.
 - [x] Valider le profil Auth avec flux HTTP de connexion réel derrière Apache.
 - [x] Corriger les dépréciations PHP 8.5 dans `doctrine-php`/`core-php` ou attendre des versions amont corrigées, sans les masquer dans le skeleton.
-- [ ] Finaliser la séparation Docker développement/production.
+- [x] Finaliser la séparation Docker développement/production.
 - [ ] Ajouter les tests de génération API et interface optionnelle.
 - [ ] Découper progressivement `Installer` sans casser la compatibilité Composer.
 

@@ -1594,13 +1594,23 @@ ENV;
         }
         
         file_put_contents($wwwEnvExamplePath, $wwwContent);
+
+        $productionWwwContent = str_replace(
+            ["# Configuration Application\n", "APP_DEBUG=1"],
+            ["# Configuration Application\nAPP_ENV=production\n", "APP_DEBUG=0"],
+            $wwwContent
+        );
+        file_put_contents($wwwDir . '/.env.production.example', $productionWwwContent);
     }
     
     private static function createDockerFiles(string $baseDir, bool $hasDatabase): void
     {
         self::createDockerCompose($baseDir, $hasDatabase);
+        self::createDockerComposeProduction($baseDir, $hasDatabase);
         self::createDockerfile($baseDir);
+        self::createProductionDockerfile($baseDir);
         self::createCustomPhpIni($baseDir);
+        self::createProductionPhpIni($baseDir);
         self::createAliases($baseDir);
         self::createDockerignore($baseDir);
     }
@@ -1696,6 +1706,102 @@ YAML;
 
         file_put_contents($baseDir . '/docker-compose.yml', $content);
     }
+
+    private static function createDockerComposeProduction(string $baseDir, bool $hasDatabase): void
+    {
+        $apacheService = self::$containerNames['apache'] ?? 'apache_app';
+        $mariadbService = self::$containerNames['mariadb'] ?? 'mariadb_app';
+
+        $apacheService = preg_replace('/[^a-z0-9_-]/', '_', strtolower($apacheService));
+        $mariadbService = preg_replace('/[^a-z0-9_-]/', '_', strtolower($mariadbService));
+
+        $dependsOn = '';
+        $databaseService = '';
+        $volumes = '';
+
+        if ($hasDatabase) {
+            $dependsOn = <<<YAML
+    depends_on:
+      {$mariadbService}:
+        condition: service_healthy
+YAML;
+
+            $databaseService = <<<YAML
+
+  {$mariadbService}:
+    image: mariadb:11.3
+    container_name: \${MARIADB_CONTAINER:-{$mariadbService}}
+    restart: unless-stopped
+    environment:
+      - MYSQL_ROOT_PASSWORD=\${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD doit être défini}
+      - MYSQL_DATABASE=\${MYSQL_DATABASE:?MYSQL_DATABASE doit être défini}
+      - MYSQL_USER=\${MYSQL_USER:?MYSQL_USER doit être défini}
+      - MYSQL_PASSWORD=\${MYSQL_PASSWORD:?MYSQL_PASSWORD doit être défini}
+    volumes:
+      - mysql:/var/lib/mysql
+    networks:
+      - app_network
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 90s
+    mem_limit: 1g
+    mem_reservation: 512m
+    cpus: 2.0
+YAML;
+
+            $volumes = <<<'YAML'
+
+volumes:
+  mysql:
+YAML;
+        }
+
+        $content = <<<YAML
+services:
+  {$apacheService}:
+    build:
+      context: .
+      dockerfile: apache/Dockerfile.prod
+    container_name: \${APACHE_CONTAINER:-{$apacheService}}
+    restart: unless-stopped
+    ports:
+      - "\${APACHE_PORT:-80}:80"
+    env_file:
+      - ./www/.env
+    environment:
+      APP_ENV: production
+      APP_DEBUG: "0"
+      PHP_ERROR_REPORTING: \${PHP_ERROR_REPORTING:-E_ALL & ~E_DEPRECATED & ~E_STRICT}
+      PHP_DISPLAY_ERRORS: \${PHP_DISPLAY_ERRORS:-Off}
+    volumes:
+      - ./www/storage:/var/www/html/storage
+      - ./www/public/uploads:/var/www/html/public/uploads
+      - ./apache/custom-php-prod.ini:/usr/local/etc/php/conf.d/custom-php.ini:ro
+    networks:
+      - app_network
+{$dependsOn}
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    mem_limit: 512m
+    mem_reservation: 256m
+    cpus: 2.0
+{$databaseService}
+
+networks:
+  app_network:
+    driver: bridge
+{$volumes}
+YAML;
+
+        file_put_contents($baseDir . '/docker-compose.prod.yml', $content);
+    }
     
     private static function createDockerfile(string $baseDir): void
     {
@@ -1740,6 +1846,53 @@ DOCKERFILE;
         
         file_put_contents($apacheDir . '/Dockerfile', $content);
     }
+
+    private static function createProductionDockerfile(string $baseDir): void
+    {
+        $apacheDir = $baseDir . '/apache';
+        if (!is_dir($apacheDir)) {
+            mkdir($apacheDir, 0755, true);
+        }
+
+        $content = <<<'DOCKERFILE'
+FROM composer:2 AS dependencies
+
+WORKDIR /app
+COPY www/composer.json www/composer.lock ./
+RUN composer install --no-dev --prefer-dist --no-interaction --no-progress --optimize-autoloader
+
+FROM php:8.3-apache
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+  wget \
+  libpng-dev \
+  libjpeg-dev \
+  libfreetype6-dev \
+  libicu-dev \
+  && rm -rf /var/lib/apt/lists/*
+
+RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
+  && docker-php-ext-install -j$(nproc) gd intl mysqli opcache pdo pdo_mysql
+
+RUN sed -i 's|/var/www/html|/var/www/html/public|g' /etc/apache2/sites-available/000-default.conf \
+  && echo "ServerName localhost\n\
+<Directory /var/www/html/public>\n\
+  AllowOverride All\n\
+  Require all granted\n\
+  </Directory>" >> /etc/apache2/apache2.conf \
+  && a2enmod rewrite
+
+COPY www/ /var/www/html/
+COPY --from=dependencies /app/vendor /var/www/html/vendor
+COPY apache/custom-php-prod.ini /usr/local/etc/php/conf.d/custom-php.ini
+
+RUN chown -R www-data:www-data /var/www/html
+
+EXPOSE 80
+DOCKERFILE;
+
+        file_put_contents($apacheDir . '/Dockerfile.prod', $content);
+    }
     
     private static function createCustomPhpIni(string $baseDir): void
     {
@@ -1763,6 +1916,40 @@ date.timezone = Europe/Paris
 INI;
         
         file_put_contents($apacheDir . '/custom-php.ini', $content);
+    }
+
+    private static function createProductionPhpIni(string $baseDir): void
+    {
+        $apacheDir = $baseDir . '/apache';
+        if (!is_dir($apacheDir)) {
+            mkdir($apacheDir, 0755, true);
+        }
+
+        $content = <<<'INI'
+[PHP]
+display_errors = Off
+display_startup_errors = Off
+log_errors = On
+error_reporting = E_ALL & ~E_DEPRECATED & ~E_STRICT
+expose_php = Off
+html_errors = Off
+
+upload_max_filesize = 20M
+post_max_size = 20M
+memory_limit = 256M
+max_execution_time = 60
+max_input_time = 60
+date.timezone = Europe/Paris
+
+opcache.enable = 1
+opcache.enable_cli = 0
+opcache.validate_timestamps = 0
+opcache.memory_consumption = 128
+opcache.interned_strings_buffer = 16
+opcache.max_accelerated_files = 10000
+INI;
+
+        file_put_contents($apacheDir . '/custom-php-prod.ini', $content);
     }
     
     private static function createHtaccess(string $publicDir): void
@@ -2318,6 +2505,9 @@ BASH;
 vendor/
 .env
 .env.local
+.env.*
+**/.env
+**/.env.*
 .git/
 .gitignore
 .idea/
@@ -2520,6 +2710,7 @@ BASH;
             echo "   4. (Linux) Fixez les permissions: cd www && ./fix-permissions.sh\n";
             echo "   5. Visitez http://localhost (ou le port configuré)\n";
             echo "   6. Utilisez 'ccomposer' pour les commandes Composer dans Docker\n";
+            echo "   7. Production: docker compose -f docker-compose.prod.yml up -d --build\n";
         } else {
             echo "   1. Configurez votre fichier .env si nécessaire\n";
             echo "   2. Installez les dépendances: composer install\n";

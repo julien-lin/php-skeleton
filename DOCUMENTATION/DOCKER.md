@@ -4,7 +4,12 @@ Ce guide explique la configuration Docker du skeleton PHP et comment l'utiliser.
 
 ## Architecture Docker
 
-Le skeleton utilise Docker Compose pour orchestrer plusieurs conteneurs :
+Le skeleton génère deux configurations Docker distinctes :
+
+- `docker-compose.yml` : développement, avec montage du code source et Composer disponible dans le conteneur ;
+- `docker-compose.prod.yml` : production, avec image construite depuis le projet, dépendances installées en `--no-dev`, OPcache activé et aucun montage du code source.
+
+Les deux configurations peuvent utiliser les mêmes services :
 
 - **Apache** : Serveur web avec PHP 8.1+
 - **MariaDB** : Base de données
@@ -13,46 +18,49 @@ Le skeleton utilise Docker Compose pour orchestrer plusieurs conteneurs :
 
 ```
 mon-projet/
-├── docker-compose.yml     # Configuration Docker Compose
-├── Dockerfile             # Image Docker Apache
-├── php.ini                # Configuration PHP personnalisée
+├── docker-compose.yml     # Configuration développement
+├── docker-compose.prod.yml # Configuration production
 ├── apache/
-│   └── vhost.conf         # Configuration Apache Virtual Host
-└── www/                   # Code source monté dans le conteneur
+│   ├── Dockerfile         # Image développement
+│   ├── Dockerfile.prod    # Image production multi-stage
+│   ├── custom-php.ini     # PHP développement
+│   └── custom-php-prod.ini # PHP production
+└── www/                   # Code source de l'application
 ```
 
-## Configuration Docker Compose
+## Développement
 
-Le fichier `docker-compose.yml` définit les services :
+Le fichier `docker-compose.yml` monte `./www` dans `/var/www/html`. Les modifications de code sont donc immédiatement visibles et Composer reste disponible dans le conteneur.
 
-### Service Apache
-
-```yaml
-apache_app:
-  build:
-    context: .
-    dockerfile: Dockerfile
-  container_name: ${APACHE_CONTAINER_NAME:-apache_app}
-  ports:
-    - "${APACHE_PORT:-8080}:80"
-  volumes:
-    - ./www:/var/www/html
-    - ./apache/vhost.conf:/etc/apache2/sites-available/000-default.conf
-    - ./php.ini:/usr/local/etc/php/conf.d/custom.ini
-  environment:
-    - APACHE_DOCUMENT_ROOT=/var/www/html/public
-  depends_on:
-    - mariadb_app
+```bash
+docker compose up -d --build
+docker compose exec apache_app composer install
+docker compose logs -f apache_app
 ```
 
-### Service MariaDB
+Le fichier `www/.env` est utilisé par l'application. Pour ce mode, gardez `APP_DEBUG=1`.
+
+## Production
+
+Le fichier `docker-compose.prod.yml` utilise `apache/Dockerfile.prod`. L'image installe les dépendances depuis `www/composer.lock` avec `--no-dev`, puis copie l'application dans l'image. Le code source n'est pas monté en volume et Composer n'est pas inclus dans l'image finale.
+
+Préparez la configuration de production :
+
+```bash
+cp www/.env.production.example www/.env
+# Renseignez APP_SECRET et les identifiants de base de données.
+docker compose -f docker-compose.prod.yml up -d --build
+docker compose -f docker-compose.prod.yml ps
+```
+
+Le compose impose `APP_ENV=production` et `APP_DEBUG=0`. Les seuls volumes Apache sont `storage`, les uploads et la configuration PHP en lecture seule. Le fichier `www/.env` est injecté par Compose et n'est pas copié dans l'image.
+
+## Service MariaDB
 
 ```yaml
 mariadb_app:
   image: mariadb:10.11
   container_name: ${MARIADB_CONTAINER_NAME:-mariadb_app}
-  ports:
-    - "${MARIADB_PORT:-3306}:3306"
   environment:
     MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASS}
     MYSQL_DATABASE: ${DB_NAME}
@@ -60,18 +68,18 @@ mariadb_app:
     MYSQL_PASSWORD: ${DB_PASS}
   volumes:
     - mariadb_data:/var/lib/mysql
-    - ./db/backup.sh:/docker-entrypoint-initdb.d/backup.sh
-    - ./db/restore.sh:/docker-entrypoint-initdb.d/restore.sh
 ```
 
 ## Image Docker Apache
 
-Le `Dockerfile` est basé sur `php:8.1-apache` et inclut :
+L'image de développement (`apache/Dockerfile`) est basée sur `php:8.3-apache` et inclut :
 
-- PHP 8.1+ avec extensions nécessaires
+- PHP 8.3 avec extensions nécessaires
 - Composer installé globalement
 - Configuration Apache optimisée
-- Extensions PHP : `pdo`, `pdo_mysql`, `mysqli`, `mbstring`, `xml`, `curl`, `zip`, `gd`
+- Extensions PHP : `pdo`, `pdo_mysql`, `mysqli`, `intl`, `gd`, `opcache`
+
+L'image de production (`apache/Dockerfile.prod`) utilise une étape Composer séparée. L'étape finale ne contient ni Composer ni les dépendances de développement.
 
 ## Commandes Docker
 
@@ -79,6 +87,12 @@ Le `Dockerfile` est basé sur `php:8.1-apache` et inclut :
 
 ```bash
 docker compose up -d
+```
+
+Pour la production, utilisez explicitement le fichier dédié :
+
+```bash
+docker compose -f docker-compose.prod.yml up -d --build
 ```
 
 L'option `-d` démarre les conteneurs en arrière-plan.
@@ -189,12 +203,13 @@ mysql -h 127.0.0.1 -P 3306 -u mon_user -p mon_app
 
 ## Volumes Docker
 
-Les volumes Docker sont utilisés pour :
+En développement, les volumes Docker sont utilisés pour :
 
 - **Code source** : `./www` monté dans `/var/www/html`
-- **Configuration Apache** : `./apache/vhost.conf` monté dans `/etc/apache2/sites-available/000-default.conf`
-- **Configuration PHP** : `./php.ini` monté dans `/usr/local/etc/php/conf.d/custom.ini`
-- **Données MariaDB** : Volume nommé `mariadb_data` pour la persistance
+- **Configuration PHP** : `./apache/custom-php.ini` monté dans `/usr/local/etc/php/conf.d/custom-php.ini`
+- **Données MariaDB** : volume nommé `mysql` pour la persistance
+
+En production, le code est intégré à l'image. Seuls `storage`, `public/uploads`, `custom-php-prod.ini` et le volume de base de données sont persistants ou montés.
 
 ### Sauvegarder les Données
 
@@ -214,18 +229,23 @@ docker run --rm -v mon-projet_mariadb_data:/data -v $(pwd):/backup alpine tar xz
 
 ### Modifier la Configuration Apache
 
-Éditez `apache/vhost.conf` et redémarrez le conteneur :
+Éditez le `Dockerfile` correspondant au mode utilisé et reconstruisez l'image :
 
 ```bash
-docker compose restart apache_app
+docker compose build --no-cache
+docker compose up -d
+
+# Production
+docker compose -f docker-compose.prod.yml up -d --build
 ```
 
 ### Modifier la Configuration PHP
 
-Éditez `php.ini` et redémarrez le conteneur :
+Éditez `apache/custom-php.ini` en développement ou `apache/custom-php-prod.ini` en production :
 
 ```bash
 docker compose restart apache_app
+docker compose -f docker-compose.prod.yml up -d --build
 ```
 
 ### Ajouter des Extensions PHP
@@ -352,4 +372,3 @@ services:
 - [Docker Compose Documentation](https://docs.docker.com/compose/)
 - [PHP Docker Images](https://hub.docker.com/_/php)
 - [MariaDB Docker Images](https://hub.docker.com/_/mariadb)
-
