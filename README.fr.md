@@ -63,8 +63,12 @@ Deux fichiers `.env` seront automatiquement générés :
 ### Étape 3 : Packages optionnels
 - **Installer Doctrine ?** - Ajoute les capacités ORM de base de données
 - **Installer Auth ?** - Ajoute le système d'authentification
+- **Installer l'API ?** - Ajoute `php-api`, Doctrine, une entité `Product` et les routes CRUD `/api/products`
+- **Installer Vision ?** - Ajoute `php-vision` et génère des templates `.html.vis` à la place des templates PHP
 
 Répondez simplement `y` pour oui ou `N` pour non (par défaut).
+
+Le profil API active automatiquement le profil base de données. Le profil Vision est indépendant et n'est jamais installé dans le profil de base.
 
 **L'autoloader est automatiquement régénéré** après l'installation, votre application est donc prête à fonctionner immédiatement !
 

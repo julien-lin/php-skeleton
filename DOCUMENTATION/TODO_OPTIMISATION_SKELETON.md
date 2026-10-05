@@ -52,7 +52,7 @@ Cette checklist couvre l’optimisation de `php-skeleton`, de son installateur, 
 - [x] Valider le profil Auth avec flux HTTP de connexion réel derrière Apache.
 - [x] Corriger les dépréciations PHP 8.5 dans `doctrine-php`/`core-php` ou attendre des versions amont corrigées, sans les masquer dans le skeleton.
 - [x] Finaliser la séparation Docker développement/production.
-- [ ] Ajouter les tests de génération API et interface optionnelle.
+- [x] Ajouter les tests de génération API et interface optionnelle.
 - [ ] Découper progressivement `Installer` sans casser la compatibilité Composer.
 
 ---
@@ -82,7 +82,7 @@ Cette checklist couvre l’optimisation de `php-skeleton`, de son installateur, 
 
 ### P0 — Critères globaux d’acceptation
 
-- [ ] Un projet de base démarre sans Doctrine, authentification, API ou bibliothèque d’interface optionnelle.
+- [x] Un projet de base démarre sans Doctrine, authentification, API ou bibliothèque d’interface optionnelle.
 - [x] Le profil base de données ajoute Doctrine de façon cohérente et reproductible avec le smoke test SQLite.
 - [x] Le profil authentification ajoute automatiquement les prérequis base de données.
 - [x] Aucun paquet généré n’utilise une contrainte wildcard non justifiée.
@@ -124,25 +124,25 @@ Cette checklist couvre l’optimisation de `php-skeleton`, de son installateur, 
 - [ ] Définir un profil sécurisé ajoutant uniquement les middlewares et composants nécessaires.
 - [x] Définir un profil base de données avec `doctrine-php` et `ext-pdo`.
 - [x] Définir un profil authentification qui implique explicitement le profil base de données.
-- [ ] Définir un profil API avec `php-api` uniquement lorsque l’utilisateur le demande.
-- [ ] Définir un profil interface optionnelle séparé du profil de base.
-- [ ] Documenter les dépendances ajoutées par chaque profil et leur justification.
-- [ ] Vérifier que le choix d’un profil ne génère pas de dépendances inutilisées dans les autres profils.
+- [x] Définir un profil API avec `php-api` uniquement lorsque l’utilisateur le demande.
+- [x] Définir un profil interface optionnelle séparé du profil de base.
+- [x] Documenter les dépendances ajoutées par chaque profil et leur justification.
+- [x] Vérifier que le choix d’un profil ne génère pas de dépendances inutilisées dans les autres profils.
 
 ### P1 — Bibliothèque API
 
-- [ ] Corriger dans `php-api` les contraintes wildcard de `core-php` et `doctrine-php`.
-- [ ] Aligner la contrainte PHP de `php-api` sur la version officiellement supportée.
-- [ ] Vérifier la compatibilité réelle de `php-api` avec les versions verrouillées du skeleton.
-- [ ] Régénérer et tester le lockfile de `php-api` avant de l’utiliser dans un profil généré.
+- [x] Corriger dans `php-api` les contraintes wildcard de `core-php` et `doctrine-php`.
+- [x] Aligner la contrainte PHP de `php-api` sur la version officiellement supportée.
+- [x] Vérifier la compatibilité réelle de `php-api` avec les versions verrouillées du skeleton.
+- [x] Régénérer et tester le lockfile de `php-api` avant de l’utiliser dans un profil généré.
 - [ ] Ajouter un test d’intégration du profil API avec le skeleton.
 
 ### P1 — Bibliothèque d’interface optionnelle
 
-- [ ] Conserver la bibliothèque d’interface hors du profil de base.
-- [ ] Documenter clairement son minimum PHP spécifique.
-- [ ] Vérifier qu’elle ne force pas des composants lourds dans les projets qui ne l’utilisent pas.
-- [ ] Ajouter un test de génération séparé pour ce profil.
+- [x] Conserver la bibliothèque d’interface hors du profil de base.
+- [x] Documenter clairement son minimum PHP spécifique.
+- [x] Vérifier qu’elle ne force pas des composants lourds dans les projets qui ne l’utilisent pas.
+- [x] Ajouter un test de génération séparé pour ce profil.
 
 ### P2 — Générateur Docker
 
@@ -324,8 +324,8 @@ Cette checklist couvre l’optimisation de `php-skeleton`, de son installateur, 
 
 ### P1 — Profil API
 
-- [ ] Ajouter `php-api` uniquement sur demande explicite.
-- [ ] Générer une configuration API minimale et documentée.
+- [x] Ajouter `php-api` uniquement sur demande explicite.
+- [x] Générer une configuration API minimale et documentée.
 - [ ] Définir la gestion des erreurs et le format des réponses.
 - [ ] Définir l’authentification API séparément de la session web si nécessaire.
 - [ ] Configurer CORS avec une liste d’origines explicite.
@@ -335,9 +335,9 @@ Cette checklist couvre l’optimisation de `php-skeleton`, de son installateur, 
 
 ### P1 — Profil interface optionnelle
 
-- [ ] Générer ce profil uniquement sur demande.
-- [ ] Isoler ses dépendances et ses templates du profil base.
-- [ ] Vérifier sa compatibilité avec la version PHP annoncée.
+- [x] Générer ce profil uniquement sur demande.
+- [x] Isoler ses dépendances et ses templates du profil base.
+- [x] Vérifier sa compatibilité avec la version PHP annoncée.
 - [ ] Ajouter un smoke test de génération et de rendu.
 
 ---
@@ -440,8 +440,8 @@ Cette checklist couvre l’optimisation de `php-skeleton`, de son installateur, 
 - [ ] Générer un projet sécurisé dans un répertoire temporaire.
 - [ ] Générer un projet base de données dans un répertoire temporaire.
 - [ ] Générer un projet authentifié dans un répertoire temporaire.
-- [ ] Générer un projet API dans un répertoire temporaire.
-- [ ] Générer un projet avec l’interface optionnelle dans un répertoire temporaire.
+- [x] Générer un projet API dans un répertoire temporaire.
+- [x] Générer un projet avec l’interface optionnelle dans un répertoire temporaire.
 - [ ] Vérifier les fichiers attendus pour chaque profil.
 - [ ] Vérifier l’absence des fichiers et dépendances non sélectionnés.
 - [ ] Vérifier que le projet généré ne référence aucun placeholder non résolu.

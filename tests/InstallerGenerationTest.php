@@ -72,6 +72,41 @@ final class InstallerGenerationTest extends TestCase
         self::assertStringContainsString('new AuthMiddleware()', $authController);
     }
 
+    public function testApiProfileIncludesDoctrineAndApiArtifacts(): void
+    {
+        $reflection = new ReflectionClass(Installer::class);
+        $this->invokeSilently($reflection, 'createLocalStructure', $this->projectDir, true, false, true, false);
+        $this->invoke($reflection, 'copyComposerJson', $this->projectDir, $this->projectDir, true, false, true, false);
+
+        $composer = json_decode((string) file_get_contents($this->projectDir . '/composer.json'), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame('^1.2', $composer['require']['julienlinard/doctrine-php']);
+        self::assertSame('^1.3', $composer['require']['julienlinard/php-api']);
+        self::assertArrayNotHasKey('julienlinard/auth-php', $composer['require']);
+        self::assertFileExists($this->projectDir . '/src/Entity/Product.php');
+        self::assertFileExists($this->projectDir . '/src/Controller/ProductController.php');
+        self::assertFileExists($this->projectDir . '/migrations/20261005_create_products.sql');
+
+        $index = (string) file_get_contents($this->projectDir . '/public/index.php');
+        self::assertStringContainsString('ProductController', $index);
+        self::assertStringContainsString('registerRoutes(\\App\\Controller\\ProductController::class)', $index);
+    }
+
+    public function testVisionProfileIsOptionalAndUsesVisionTemplates(): void
+    {
+        $reflection = new ReflectionClass(Installer::class);
+        $this->invokeSilently($reflection, 'createLocalStructure', $this->projectDir, false, false, false, true);
+        $this->invoke($reflection, 'copyComposerJson', $this->projectDir, $this->projectDir, false, false, false, true);
+
+        $composer = json_decode((string) file_get_contents($this->projectDir . '/composer.json'), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame('^1.0', $composer['require']['julienlinard/php-vision']);
+        self::assertArrayNotHasKey('julienlinard/doctrine-php', $composer['require']);
+        self::assertArrayNotHasKey('julienlinard/php-api', $composer['require']);
+        self::assertFileExists($this->projectDir . '/views/home/index.html.vis');
+        self::assertFileDoesNotExist($this->projectDir . '/views/home/index.html.php');
+        self::assertStringContainsString('{{ title }}', (string) file_get_contents($this->projectDir . '/views/home/index.html.vis'));
+        self::assertStringNotContainsString('<?php', (string) file_get_contents($this->projectDir . '/views/_templates/_header.html.php'));
+    }
+
     public function testGeneratedComposerCannotBeOverwrittenOnRerun(): void
     {
         $reflection = new ReflectionClass(Installer::class);

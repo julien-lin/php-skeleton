@@ -63,8 +63,12 @@ Two `.env` files will be automatically generated:
 ### Step 3: Optional Packages
 - **Install Doctrine?** - Adds database ORM capabilities
 - **Install Auth?** - Adds authentication system
+- **Install API?** - Adds `php-api`, Doctrine, a `Product` entity and CRUD routes under `/api/products`
+- **Install Vision?** - Adds `php-vision` and generates `.html.vis` templates instead of PHP templates
 
 Simply answer `y` for yes or `N` for no (default).
+
+The API profile automatically enables the database profile. The Vision profile is independent and is never installed in the base profile.
 
 **The autoloader is automatically regenerated** after installation, so your application is ready to run immediately!
 

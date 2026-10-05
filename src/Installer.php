@@ -19,9 +19,11 @@ class Installer
         
         $installDoctrine = self::askQuestion('Voulez-vous installer Doctrine ? (y/N)', false);
         $installAuth = self::askQuestion('Voulez-vous installer Auth ? (y/N)', false);
+        $installApi = self::askQuestion('Voulez-vous installer le profil API ? (y/N)', false);
+        $installVision = self::askQuestion('Voulez-vous installer le profil Vision ? (y/N)', false);
 
         // Auth repose sur Doctrine : empêcher la génération d'un bootstrap incohérent.
-        if ($installAuth) {
+        if ($installAuth || $installApi) {
             $installDoctrine = true;
         }
         
@@ -34,12 +36,12 @@ class Installer
             // Configurer l'environnement AVANT de créer docker-compose.yml
             // pour avoir les noms de conteneurs
             self::configureEnv($installDoctrine);
-            self::setupDocker($installDoctrine, $installAuth);
+            self::setupDocker($installDoctrine, $installAuth, $installApi, $installVision);
         } else {
-            self::setupLocal($installDoctrine, $installAuth);
+            self::setupLocal($installDoctrine, $installAuth, $installApi, $installVision);
         }
         
-        self::copyComposerJson($baseDir, $wwwDir, $installDoctrine, $installAuth);
+        self::copyComposerJson($baseDir, $wwwDir, $installDoctrine, $installAuth, $installApi, $installVision);
 
         // Le composer.json généré contient déjà le profil choisi : une seule
         // résolution évite les lockfiles intermédiaires et les incohérences.
@@ -404,13 +406,18 @@ class Installer
         return file_exists($path) && is_executable($path);
     }
     
-    private static function setupDocker(bool $installDoctrine, bool $installAuth): void
+    private static function setupDocker(
+        bool $installDoctrine,
+        bool $installAuth,
+        bool $installApi = false,
+        bool $installVision = false
+    ): void
     {
         echo "\n🐳 Configuration Docker...\n";
         
         $baseDir = self::getProjectRoot();
         
-        self::createWwwStructure($baseDir, $installDoctrine, $installAuth);
+        self::createWwwStructure($baseDir, $installDoctrine, $installAuth, $installApi, $installVision);
         self::createDockerFiles($baseDir, $installDoctrine);
         
         echo "✅ Fichiers Docker créés.\n";
@@ -421,7 +428,13 @@ class Installer
         return getcwd() ?: dirname(__DIR__, 1);
     }
     
-    private static function createWwwStructure(string $baseDir, bool $installDoctrine, bool $installAuth): void
+    private static function createWwwStructure(
+        string $baseDir,
+        bool $installDoctrine,
+        bool $installAuth,
+        bool $installApi = false,
+        bool $installVision = false
+    ): void
     {
         $wwwDir = $baseDir . '/www';
         $publicDir = $wwwDir . '/public';
@@ -447,16 +460,19 @@ class Installer
         
         self::moveExistingFiles($baseDir, $wwwDir);
         self::createHtaccess($publicDir);
-        self::createHeaderTemplate($templatesDir);
+        self::createHeaderTemplate($templatesDir, $installVision);
         self::createFooterTemplate($templatesDir);
-        self::createHomeView($homeDir);
+        self::createHomeView($homeDir, $installVision);
         self::createWwwDirectories($wwwDir);
         self::createConfigDatabase($wwwDir, $installDoctrine);
         if ($installAuth) {
             self::createAuthFiles($wwwDir);
         }
+        if ($installApi) {
+            self::createApiFiles($wwwDir);
+        }
         self::createBootstrapServices($wwwDir);
-        self::createPublicIndex($publicDir, $installDoctrine, $installAuth);
+        self::createPublicIndex($publicDir, $installDoctrine, $installAuth, $installApi);
         self::createWwwGitignore($wwwDir);
         
         echo "✅ Structure www/ créée.\n";
@@ -978,9 +994,16 @@ PHP;
         file_put_contents($configDir . '/database.php', $content);
     }
     
-    private static function copyComposerJson(string $baseDir, string $targetDir, bool $hasDoctrine, bool $hasAuth): void
+    private static function copyComposerJson(
+        string $baseDir,
+        string $targetDir,
+        bool $hasDoctrine,
+        bool $hasAuth,
+        bool $hasApi = false,
+        bool $hasVision = false
+    ): void
     {
-        if ($hasAuth) {
+        if ($hasAuth || $hasApi) {
             $hasDoctrine = true;
         }
 
@@ -1009,6 +1032,14 @@ PHP;
         
         if ($hasAuth) {
             $require['julienlinard/auth-php'] = '^1.3';
+        }
+
+        if ($hasApi) {
+            $require['julienlinard/php-api'] = '^1.3';
+        }
+
+        if ($hasVision) {
+            $require['julienlinard/php-vision'] = '^1.0';
         }
         
         // Normaliser le nom du projet (minuscules, remplacer espaces et caractères spéciaux par des tirets)
@@ -1064,8 +1095,43 @@ GITIGNORE;
         file_put_contents($wwwDir . '/.gitignore', $content);
     }
     
-    private static function createHomeView(string $homeDir): void
+    private static function createHomeView(string $homeDir, bool $useVision = false): void
     {
+        if ($useVision) {
+            $content = <<<'VISION'
+<div class="container mx-auto px-4 py-8">
+    <div class="max-w-4xl mx-auto bg-white rounded-lg shadow-lg p-8">
+        <h1 class="text-4xl font-bold text-gray-800 mb-4">{{ title }}</h1>
+        <p class="text-xl text-gray-600 mb-6">{{ message }}</p>
+        <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
+            <p class="text-blue-700"><strong>🎉 Congratulations!</strong> Your PHP application is running successfully.</p>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="bg-gray-50 p-4 rounded">
+                <h2 class="font-semibold text-gray-800 mb-2">📦 Installed Packages</h2>
+                <ul class="text-sm text-gray-600 space-y-1">
+                    <li>✅ Core PHP Framework</li>
+                    <li>✅ PHP Router</li>
+                    <li>✅ PHP Vision</li>
+                </ul>
+            </div>
+            <div class="bg-gray-50 p-4 rounded">
+                <h2 class="font-semibold text-gray-800 mb-2">🚀 Next Steps</h2>
+                <ul class="text-sm text-gray-600 space-y-1">
+                    <li>Create your controllers</li>
+                    <li>Add your Vision templates</li>
+                    <li>Configure your database</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+VISION;
+
+            file_put_contents($homeDir . '/index.html.vis', $content);
+            return;
+        }
+
         $content = <<<'PHP'
 <div class="container mx-auto px-4 py-8">
     <div class="max-w-4xl mx-auto bg-white rounded-lg shadow-lg p-8">
@@ -1102,15 +1168,26 @@ PHP;
         file_put_contents($homeDir . '/index.html.php', $content);
     }
     
-    private static function setupLocal(bool $installDoctrine, bool $installAuth): void
+    private static function setupLocal(
+        bool $installDoctrine,
+        bool $installAuth,
+        bool $installApi = false,
+        bool $installVision = false
+    ): void
     {
         echo "\n💻 Configuration locale...\n";
         $baseDir = self::getProjectRoot();
-        self::createLocalStructure($baseDir, $installDoctrine, $installAuth);
+        self::createLocalStructure($baseDir, $installDoctrine, $installAuth, $installApi, $installVision);
         echo "✅ Configuration locale prête.\n";
     }
     
-    private static function createLocalStructure(string $baseDir, bool $installDoctrine, bool $installAuth): void
+    private static function createLocalStructure(
+        string $baseDir,
+        bool $installDoctrine,
+        bool $installAuth,
+        bool $installApi = false,
+        bool $installVision = false
+    ): void
     {
         $publicDir = $baseDir . '/public';
         $viewsDir = $baseDir . '/views';
@@ -1131,19 +1208,22 @@ PHP;
         }
         
         self::createHtaccess($publicDir);
-        self::createHeaderTemplate($templatesDir);
+        self::createHeaderTemplate($templatesDir, $installVision);
         self::createFooterTemplate($templatesDir);
-        self::createHomeView($homeDir);
+        self::createHomeView($homeDir, $installVision);
         self::createLocalDirectories($baseDir);
         self::createConfigDatabase($baseDir, $installDoctrine);
         if ($installAuth) {
             self::createAuthFiles($baseDir);
         }
+        if ($installApi) {
+            self::createApiFiles($baseDir);
+        }
         self::createLocalEnvFiles($baseDir, $installDoctrine);
         self::createBootstrapServices($baseDir);
         self::createWwwGitignore($baseDir);
         
-        self::createPublicIndex($publicDir, $installDoctrine, $installAuth);
+        self::createPublicIndex($publicDir, $installDoctrine, $installAuth, $installApi);
         
         echo "✅ Structure locale créée.\n";
     }
@@ -1969,7 +2049,12 @@ HTACCESS;
         file_put_contents($publicDir . '/.htaccess', $content);
     }
     
-    private static function createPublicIndex(string $publicDir, bool $hasDoctrine, bool $hasAuth): void
+    private static function createPublicIndex(
+        string $publicDir,
+        bool $hasDoctrine,
+        bool $hasAuth,
+        bool $hasApi = false
+    ): void
     {
         $wwwDir = dirname($publicDir);
         $controllerDir = $wwwDir . '/src/Controller';
@@ -1977,7 +2062,7 @@ HTACCESS;
             mkdir($controllerDir, 0755, true);
         }
         
-        $indexContent = self::generateIndexContent($hasDoctrine, $hasAuth);
+        $indexContent = self::generateIndexContent($hasDoctrine, $hasAuth, $hasApi);
         
         $controllerContent = <<<'PHP'
 <?php
@@ -2033,6 +2118,169 @@ PHP;
         if ($hasAuth) {
             self::createAuthController($controllerDir);
         }
+    }
+
+    private static function createApiFiles(string $baseDir): void
+    {
+        $entityDir = $baseDir . '/src/Entity';
+        $controllerDir = $baseDir . '/src/Controller';
+        $migrationDir = $baseDir . '/migrations';
+
+        foreach ([$entityDir, $controllerDir, $migrationDir] as $directory) {
+            if (!is_dir($directory) && !mkdir($directory, 0755, true) && !is_dir($directory)) {
+                throw new \RuntimeException("Impossible de créer {$directory}.");
+            }
+        }
+
+        $productEntity = <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+namespace App\Entity;
+
+use JulienLinard\Api\Annotation\ApiProperty;
+use JulienLinard\Api\Annotation\ApiResource;
+use JulienLinard\Doctrine\Mapping\Column;
+use JulienLinard\Doctrine\Mapping\Entity;
+use JulienLinard\Doctrine\Mapping\Id;
+
+#[ApiResource(
+    operations: ['GET', 'POST', 'PUT', 'DELETE'],
+    routePrefix: '/api',
+    shortName: 'products'
+)]
+#[Entity(table: 'products')]
+final class Product
+{
+    #[Id]
+    #[Column(type: 'integer', autoIncrement: true)]
+    #[ApiProperty(groups: ['read'])]
+    public ?int $id = null;
+
+    #[Column(type: 'string', length: 255)]
+    #[ApiProperty(groups: ['read', 'write'], required: true)]
+    public string $name = '';
+
+    #[Column(type: 'float')]
+    #[ApiProperty(groups: ['read', 'write'], required: true)]
+    public float $price = 0.0;
+
+    public function __construct(array $data = [])
+    {
+        foreach ($data as $property => $value) {
+            if (property_exists($this, $property)) {
+                $this->{$property} = $value;
+            }
+        }
+    }
+}
+PHP;
+
+        self::writeGeneratedFile($entityDir . '/Product.php', $productEntity);
+
+        $productController = <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+namespace App\Controller;
+
+use App\Entity\Product;
+use JulienLinard\Api\Controller\ApiController;
+use JulienLinard\Api\Serializer\JsonSerializer;
+use JulienLinard\Core\Application;
+use JulienLinard\Doctrine\EntityManager;
+use JulienLinard\Router\Attributes\Route;
+use JulienLinard\Router\Request;
+use JulienLinard\Router\Response;
+
+final class ProductController extends ApiController
+{
+    public function __construct()
+    {
+        parent::__construct(Product::class, new JsonSerializer());
+    }
+
+    #[Route(path: '/api/products', methods: ['GET'], name: 'api.products.index')]
+    public function index(Request|array $requestOrParams = []): Response
+    {
+        return parent::index($requestOrParams);
+    }
+
+    #[Route(path: '/api/products/{id}', methods: ['GET'], name: 'api.products.show', constraints: ['id' => '\\d+'])]
+    public function show(Request|int|string $requestOrId): Response
+    {
+        return parent::show($requestOrId);
+    }
+
+    #[Route(path: '/api/products', methods: ['POST'], name: 'api.products.create')]
+    public function create(Request|array $requestOrData): Response
+    {
+        return parent::create($requestOrData);
+    }
+
+    #[Route(path: '/api/products/{id}', methods: ['PUT'], name: 'api.products.update', constraints: ['id' => '\\d+'])]
+    public function update(Request|int|string $requestOrId, ?array $data = null): Response
+    {
+        return parent::update($requestOrId, $data);
+    }
+
+    #[Route(path: '/api/products/{id}', methods: ['DELETE'], name: 'api.products.delete', constraints: ['id' => '\\d+'])]
+    public function delete(Request|int|string $requestOrId): Response
+    {
+        return parent::delete($requestOrId);
+    }
+
+    protected function getAll(array $queryParams = []): array
+    {
+        return $this->entityManager()
+            ->getRepository(Product::class)
+            ->findAll();
+    }
+
+    protected function getOne(int|string $id): ?object
+    {
+        return $this->entityManager()
+            ->getRepository(Product::class)
+            ->find($id);
+    }
+
+    protected function save(object $entity): void
+    {
+        $entityManager = $this->entityManager();
+        $entityManager->persist($entity);
+        $entityManager->flush();
+    }
+
+    protected function remove(object $entity): void
+    {
+        $entityManager = $this->entityManager();
+        $entityManager->remove($entity);
+        $entityManager->flush();
+    }
+
+    private function entityManager(): EntityManager
+    {
+        return Application::getInstanceOrFail()
+            ->getContainer()
+            ->make(EntityManager::class);
+    }
+}
+PHP;
+
+        self::writeGeneratedFile($controllerDir . '/ProductController.php', $productController);
+
+        $migration = <<<'SQL'
+-- Migration initiale du profil API.
+CREATE TABLE IF NOT EXISTS `products` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `name` VARCHAR(255) NOT NULL,
+    `price` DECIMAL(12, 2) NOT NULL DEFAULT 0
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+SQL;
+
+        self::writeGeneratedFile($migrationDir . '/20261005_create_products.sql', $migration);
     }
 
     private static function createAuthController(string $controllerDir): void
@@ -2140,7 +2388,11 @@ PHP;
         self::writeGeneratedFile($controllerDir . '/AuthController.php', $content);
     }
     
-    private static function generateIndexContent(bool $hasDoctrine, bool $hasAuth): string
+    private static function generateIndexContent(
+        bool $hasDoctrine,
+        bool $hasAuth,
+        bool $hasApi = false
+    ): string
     {
         $content = <<<'PHP'
 <?php
@@ -2178,6 +2430,10 @@ PHP;
         
         if ($hasAuth) {
             $content .= "\nuse JulienLinard\Auth\AuthManager;";
+        }
+
+        if ($hasApi) {
+            $content .= "\nuse App\Controller\ProductController;";
         }
         
         $content .= "\n\n";
@@ -2375,6 +2631,10 @@ PHP;
             $content .= '$router->registerRoutes(\\App\\Controller\\AuthController::class);' . "\n";
         }
 
+        if ($hasApi) {
+            $content .= '$router->registerRoutes(\\App\\Controller\\ProductController::class);' . "\n";
+        }
+
         $content .= <<<'PHP'
 // Démarrer l'application
 $app->start();
@@ -2386,8 +2646,24 @@ PHP;
         return $content;
     }
     
-    private static function createHeaderTemplate(string $templatesDir): void
+    private static function createHeaderTemplate(string $templatesDir, bool $useVision = false): void
     {
+        if ($useVision) {
+            $content = <<<'VISION'
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Application</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+VISION;
+            file_put_contents($templatesDir . '/_header.html.php', $content);
+            return;
+        }
+
         $content = <<<'PHP'
 <!DOCTYPE html>
 <html lang="fr">
