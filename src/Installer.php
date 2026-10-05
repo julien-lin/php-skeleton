@@ -1501,75 +1501,10 @@ GITIGNORE;
     
     private static function createHomeView(string $homeDir, bool $useVision = false): void
     {
-        if ($useVision) {
-            $content = <<<'VISION'
-<div class="container mx-auto px-4 py-8">
-    <div class="max-w-4xl mx-auto bg-white rounded-lg shadow-lg p-8">
-        <h1 class="text-4xl font-bold text-gray-800 mb-4">{{ title }}</h1>
-        <p class="text-xl text-gray-600 mb-6">{{ message }}</p>
-        <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
-            <p class="text-blue-700"><strong>🎉 Congratulations!</strong> Your PHP application is running successfully.</p>
-        </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="bg-gray-50 p-4 rounded">
-                <h2 class="font-semibold text-gray-800 mb-2">📦 Installed Packages</h2>
-                <ul class="text-sm text-gray-600 space-y-1">
-                    <li>✅ Core PHP Framework</li>
-                    <li>✅ PHP Router</li>
-                    <li>✅ PHP Vision</li>
-                </ul>
-            </div>
-            <div class="bg-gray-50 p-4 rounded">
-                <h2 class="font-semibold text-gray-800 mb-2">🚀 Next Steps</h2>
-                <ul class="text-sm text-gray-600 space-y-1">
-                    <li>Create your controllers</li>
-                    <li>Add your Vision templates</li>
-                    <li>Configure your database</li>
-                </ul>
-            </div>
-        </div>
-    </div>
-</div>
-VISION;
-
-            self::writeGeneratedFile($homeDir . '/index.html.vis', $content);
-            return;
-        }
-
-        $content = <<<'PHP'
-<div class="container mx-auto px-4 py-8">
-    <div class="max-w-4xl mx-auto bg-white rounded-lg shadow-lg p-8">
-        <h1 class="text-4xl font-bold text-gray-800 mb-4"><?= htmlspecialchars($title ?? 'Welcome') ?></h1>
-        <p class="text-xl text-gray-600 mb-6"><?= htmlspecialchars($message ?? 'Hello World!') ?></p>
-        
-        <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
-            <p class="text-blue-700">
-                <strong>🎉 Congratulations!</strong> Your PHP application is running successfully.
-            </p>
-        </div>
-        
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="bg-gray-50 p-4 rounded">
-                <h2 class="font-semibold text-gray-800 mb-2">📦 Installed Packages</h2>
-                <ul class="text-sm text-gray-600 space-y-1">
-                    <li>✅ Core PHP Framework</li>
-                    <li>✅ PHP Router</li>
-                </ul>
-            </div>
-            <div class="bg-gray-50 p-4 rounded">
-                <h2 class="font-semibold text-gray-800 mb-2">🚀 Next Steps</h2>
-                <ul class="text-sm text-gray-600 space-y-1">
-                    <li>Create your controllers</li>
-                    <li>Add your views</li>
-                    <li>Configure your database</li>
-                </ul>
-            </div>
-        </div>
-    </div>
-</div>
-PHP;
-        
-        self::writeGeneratedFile($homeDir . '/index.html.php', $content);
+        $template = $useVision
+            ? 'views/home/index.html.vis'
+            : 'views/home/index.html.php';
+        self::writeGeneratedFile($homeDir . '/' . basename($template), self::readInstallerTemplate($template));
     }
     
     private static function setupLocal(
@@ -1800,6 +1735,21 @@ SQL;
         if (file_put_contents($path, $content) === false) {
             throw new \RuntimeException("Impossible d'écrire le fichier généré {$path}.");
         }
+    }
+
+    private static function readInstallerTemplate(string $relativePath): string
+    {
+        if ($relativePath === '' || str_contains($relativePath, '..') || str_starts_with($relativePath, DIRECTORY_SEPARATOR)) {
+            throw new \InvalidArgumentException("Chemin de template invalide: {$relativePath}");
+        }
+
+        $templatePath = dirname(__DIR__) . '/templates/installer/' . $relativePath;
+        $content = file_get_contents($templatePath);
+        if ($content === false) {
+            throw new \RuntimeException("Template de l'installateur introuvable: {$relativePath}");
+        }
+
+        return $content;
     }
 
     /**

@@ -218,7 +218,7 @@ Cette checklist couvre l’optimisation de `php-skeleton`, de son installateur, 
 
 ### P1 — Templates générés
 
-- [ ] Sortir les gros heredocs de l’installateur vers des templates versionnés.
+- [x] Sortir les gros heredocs de l’installateur vers des templates versionnés (vues d’accueil extraites).
 - [ ] Organiser les templates par profil et par environnement.
 - [ ] Éviter de dupliquer le bootstrap entre profils lorsque seule la configuration change.
 - [x] Ajouter une validation syntaxique de chaque template PHP généré.

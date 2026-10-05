@@ -725,6 +725,17 @@ SQL);
         );
     }
 
+    public function testHomeViewsAreLoadedFromVersionedInstallerTemplates(): void
+    {
+        $reflection = new ReflectionClass(Installer::class);
+        $this->invokeSilently($reflection, 'createLocalStructure', $this->projectDir, false, false);
+
+        self::assertSame(
+            (string) file_get_contents(dirname(__DIR__) . '/templates/installer/views/home/index.html.php'),
+            (string) file_get_contents($this->projectDir . '/views/home/index.html.php')
+        );
+    }
+
     public function testGenerationSupportsPathsWithSpaces(): void
     {
         $reflection = new ReflectionClass(Installer::class);
