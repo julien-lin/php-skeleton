@@ -214,7 +214,7 @@ Cette checklist couvre l’optimisation de `php-skeleton`, de son installateur, 
 - [ ] Isoler la génération de l’environnement de la génération du code applicatif.
 - [ ] Réduire les méthodes statiques et injecter les services nécessaires.
 - [x] Définir des objets de configuration typés pour les choix de l’utilisateur.
-- [ ] Centraliser les chemins générés afin d’éviter les divergences entre étapes.
+- [x] Centraliser les chemins générés afin d’éviter les divergences entre étapes.
 
 ### P1 — Templates générés
 

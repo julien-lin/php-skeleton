@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Julien;
 
 use Julien\Installer\InstallOptions;
+use Julien\Installer\InstallPaths;
 
 class Installer
 {
@@ -32,8 +33,9 @@ class Installer
         self::assertInstallTargetIsSkeleton($baseDir, $options->useDocker);
 
         $stagingDir = self::createInstallationStagingDirectory();
+        $paths = new InstallPaths($baseDir, $stagingDir, $options->useDocker);
         try {
-            $wwwDir = $options->useDocker ? $stagingDir . '/www' : $stagingDir;
+            $wwwDir = $paths->applicationRoot();
 
             if ($options->useDocker) {
                 // Configurer l'environnement dans le staging avant de créer Docker.
@@ -53,13 +55,13 @@ class Installer
 
             // Régénérer l'autoloader après la création des fichiers
             self::regenerateAutoloader($wwwDir);
-            self::publishInstallationStaging($stagingDir, $baseDir, $options->useDocker);
+            self::publishInstallationStaging($paths);
         } catch (\Throwable $exception) {
-            self::removeDirectory($stagingDir);
+            self::removeDirectory($paths->stagingRoot);
             throw $exception;
         }
 
-        self::removeDirectory($stagingDir);
+        self::removeDirectory($paths->stagingRoot);
         self::displayCompletion(
             $options->useDocker,
             $options->installDoctrine,
@@ -607,7 +609,7 @@ class Installer
         return $stagingDir;
     }
 
-    private static function publishInstallationStaging(string $stagingDir, string $baseDir, bool $useDocker): void
+    private static function publishInstallationStaging(InstallPaths $paths): void
     {
         $rollbackDir = self::createInstallationStagingDirectory();
         $backups = [];
@@ -615,7 +617,7 @@ class Installer
         $createdFiles = [];
 
         $files = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator($stagingDir, \FilesystemIterator::SKIP_DOTS)
+            new \RecursiveDirectoryIterator($paths->stagingRoot, \FilesystemIterator::SKIP_DOTS)
         );
 
         try {
@@ -625,12 +627,12 @@ class Installer
                 }
 
                 $sourcePath = $file->getPathname();
-                $relativePath = ltrim(substr($sourcePath, strlen($stagingDir)), DIRECTORY_SEPARATOR);
-                $targetPath = $baseDir . DIRECTORY_SEPARATOR . $relativePath;
+                $relativePath = $paths->relativeStagingPath($sourcePath);
+                $targetPath = $paths->targetPath($relativePath);
 
                 // Une configuration locale existante reste prioritaire sur le secret
                 // généré dans le staging.
-                if (!$useDocker && $relativePath === '.env' && is_file($targetPath)) {
+                if (!$paths->useDocker && $relativePath === '.env' && is_file($targetPath)) {
                     continue;
                 }
 
@@ -661,9 +663,9 @@ class Installer
                 }
             }
 
-            if ($useDocker) {
+            if ($paths->useDocker) {
                 foreach (['public', 'src', 'templates', 'config', 'vendor'] as $item) {
-                    $path = $baseDir . DIRECTORY_SEPARATOR . $item;
+                    $path = $paths->targetPath($item);
                     if (!is_dir($path)) {
                         continue;
                     }

@@ -6,6 +6,7 @@ namespace Julien\Tests;
 
 use PHPUnit\Framework\TestCase;
 use Julien\Installer;
+use Julien\Installer\InstallPaths;
 use ReflectionClass;
 use ReflectionMethod;
 
@@ -301,7 +302,7 @@ class InstallerSecurityTest extends TestCase
         try {
             $this->expectException(\RuntimeException::class);
             $this->expectExceptionMessage('Impossible de créer le répertoire');
-            $this->reflection->getMethod('publishInstallationStaging')->invoke(null, $stagingDir, $baseDir, false);
+            $this->reflection->getMethod('publishInstallationStaging')->invoke(null, new InstallPaths($baseDir, $stagingDir, false));
         } finally {
             self::assertSame('{"name":"julienlinard/php-skeleton"}', (string) file_get_contents($baseDir . '/composer.json'));
             self::assertSame('keep me', (string) file_get_contents($baseDir . '/blocked'));
