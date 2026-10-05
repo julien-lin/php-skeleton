@@ -701,6 +701,30 @@ SQL);
         $this->invoke($reflection, 'validateGeneratedPhpFiles', $this->projectDir);
     }
 
+    public function testGeneratedFilesRejectKnownUnresolvedPlaceholders(): void
+    {
+        $reflection = new ReflectionClass(Installer::class);
+        $this->invokeSilently($reflection, 'createLocalStructure', $this->projectDir, false, false);
+        $composerPath = $this->projectDir . '/composer.json';
+        file_put_contents($composerPath, 'your-vendor/example');
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Placeholder non résolu');
+        $this->invoke($reflection, 'validateGeneratedPlaceholders', $this->projectDir);
+    }
+
+    public function testVisionSyntaxIsNotMistakenForAnUnresolvedPlaceholder(): void
+    {
+        $reflection = new ReflectionClass(Installer::class);
+        $this->invokeSilently($reflection, 'createLocalStructure', $this->projectDir, false, false, false, true);
+
+        $this->invoke($reflection, 'validateGeneratedPlaceholders', $this->projectDir);
+        self::assertStringContainsString(
+            '{{ title }}',
+            (string) file_get_contents($this->projectDir . '/views/home/index.html.vis')
+        );
+    }
+
     public function testGenerationSupportsPathsWithSpaces(): void
     {
         $reflection = new ReflectionClass(Installer::class);

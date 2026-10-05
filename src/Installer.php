@@ -47,6 +47,7 @@ class Installer
 
             self::copyComposerJson($baseDir, $wwwDir, $installDoctrine, $installAuth, $installApi, $installVision, $installSecure);
             self::validateGeneratedPhpFiles($wwwDir);
+            self::validateGeneratedPlaceholders($wwwDir);
 
             // Le composer.json généré contient déjà le profil choisi : une seule
             // résolution évite les lockfiles intermédiaires et les incohérences.
@@ -209,6 +210,49 @@ class Installer
                 throw new \RuntimeException(
                     "Syntaxe PHP invalide dans le fichier généré {$path}:\n" . trim($output)
                 );
+            }
+        }
+    }
+
+    private static function validateGeneratedPlaceholders(string $targetDir): void
+    {
+        if (!is_dir($targetDir)) {
+            throw new \RuntimeException("Répertoire généré introuvable: {$targetDir}");
+        }
+
+        $files = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($targetDir, \FilesystemIterator::SKIP_DOTS)
+        );
+        $markers = [
+            'your-vendor/',
+            'your-project',
+            '__PLACEHOLDER__',
+            'CHANGE_ME',
+            'REPLACE_ME',
+        ];
+
+        foreach ($files as $file) {
+            if (!$file->isFile() || str_contains($file->getPathname(), DIRECTORY_SEPARATOR . 'vendor' . DIRECTORY_SEPARATOR)) {
+                continue;
+            }
+
+            // Les fichiers binaires et les exemples .env peuvent contenir des
+            // valeurs pédagogiques ou des octets qui ne sont pas des templates.
+            if ($file->getFilename() === '.env.example' || filesize($file->getPathname()) === 0) {
+                continue;
+            }
+
+            $content = file_get_contents($file->getPathname());
+            if ($content === false || preg_match('//u', $content) !== 1) {
+                continue;
+            }
+
+            foreach ($markers as $marker) {
+                if (stripos($content, $marker) !== false) {
+                    throw new \RuntimeException(
+                        "Placeholder non résolu '{$marker}' dans le fichier généré {$file->getPathname()}."
+                    );
+                }
             }
         }
     }
