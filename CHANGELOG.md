@@ -38,6 +38,7 @@ et ce projet adhère à [Semantic Versioning](https://semver.org/lang/fr/).
 - La configuration Docker refuse désormais les collisions entre les ports Apache et MariaDB.
 - La cohérence des lockfiles source et générés est désormais vérifiée automatiquement.
 - Composer est désormais vérifié avant les questions et la génération de fichiers.
+- Les fichiers PHP générés sont contrôlés par `php -l` avant l’installation des dépendances.
 - Correction de la réponse `/account` pour les visiteurs non authentifiés.
 
 ## [1.5.13] - 2025-01-XX

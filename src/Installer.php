@@ -44,6 +44,7 @@ class Installer
         }
         
         self::copyComposerJson($baseDir, $wwwDir, $installDoctrine, $installAuth, $installApi, $installVision, $installSecure);
+        self::validateGeneratedPhpFiles($wwwDir);
 
         // Le composer.json généré contient déjà le profil choisi : une seule
         // résolution évite les lockfiles intermédiaires et les incohérences.
@@ -160,6 +161,44 @@ class Installer
         }
 
         echo "✅ Dépendances installées et lockfile généré.\n";
+    }
+
+    private static function validateGeneratedPhpFiles(string $targetDir): void
+    {
+        if (!is_dir($targetDir)) {
+            throw new \RuntimeException("Répertoire généré introuvable: {$targetDir}");
+        }
+
+        $files = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($targetDir, \FilesystemIterator::SKIP_DOTS)
+        );
+
+        foreach ($files as $file) {
+            if (!$file->isFile() || $file->getExtension() !== 'php' || str_contains($file->getPathname(), DIRECTORY_SEPARATOR . 'vendor' . DIRECTORY_SEPARATOR)) {
+                continue;
+            }
+
+            $path = $file->getPathname();
+            $process = proc_open(
+                [PHP_BINARY, '-l', $path],
+                [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+                $pipes
+            );
+            if (!is_resource($process)) {
+                throw new \RuntimeException("Impossible de vérifier la syntaxe PHP de {$path}.");
+            }
+
+            $output = stream_get_contents($pipes[1]) . stream_get_contents($pipes[2]);
+            fclose($pipes[1]);
+            fclose($pipes[2]);
+            $exitCode = proc_close($process);
+
+            if ($exitCode !== 0) {
+                throw new \RuntimeException(
+                    "Syntaxe PHP invalide dans le fichier généré {$path}:\n" . trim($output)
+                );
+            }
+        }
     }
 
     private static function assertInstallTargetIsSkeleton(string $baseDir, bool $useDocker): void

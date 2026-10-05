@@ -647,6 +647,23 @@ SQL);
         self::assertSame($customView, (string) file_get_contents($homeView));
     }
 
+    public function testGeneratedPhpFilesPassSyntaxValidation(): void
+    {
+        $reflection = new ReflectionClass(Installer::class);
+        $this->invokeSilently($reflection, 'createLocalStructure', $this->projectDir, false, false);
+
+        $this->invoke($reflection, 'validateGeneratedPhpFiles', $this->projectDir);
+
+        file_put_contents(
+            $this->projectDir . '/src/Controller/HomeController.php',
+            "<?php\nfunction (\n"
+        );
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Syntaxe PHP invalide dans le fichier généré');
+        $this->invoke($reflection, 'validateGeneratedPhpFiles', $this->projectDir);
+    }
+
     public function testDockerBaseProfileDoesNotGenerateDatabaseService(): void
     {
         $reflection = new ReflectionClass(Installer::class);
