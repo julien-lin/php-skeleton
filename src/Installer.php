@@ -1096,7 +1096,7 @@ PHP;
         $normalizedName = trim($normalizedName, '-');
         
         $json = [
-            'name' => 'your-vendor/' . $normalizedName,
+            'name' => 'app/' . $normalizedName,
             'description' => 'PHP application built with JulienLinard PHP Framework',
             'type' => 'project',
             'license' => 'MIT',

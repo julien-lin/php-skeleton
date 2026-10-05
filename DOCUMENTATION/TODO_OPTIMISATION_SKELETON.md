@@ -446,7 +446,7 @@ Cette checklist couvre l’optimisation de `php-skeleton`, de son installateur, 
 - [x] Générer un projet avec l’interface optionnelle dans un répertoire temporaire.
 - [x] Vérifier les fichiers attendus pour chaque profil.
 - [x] Vérifier l’absence des fichiers et dépendances non sélectionnés.
-- [ ] Vérifier que le projet généré ne référence aucun placeholder non résolu.
+- [x] Vérifier que le projet généré ne référence aucun placeholder non résolu.
 
 ### P0 — Smoke tests générés
 

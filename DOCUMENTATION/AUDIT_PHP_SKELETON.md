@@ -207,7 +207,7 @@ En mode local, `copyComposerJson()` écrase en plus le `composer.json` (`src/Ins
 
 Le projet généré utilise `core-php: ^1.0` et `php-router: ^1.0` alors que le skeleton source déclare respectivement `^1.4` et `^1.2` (`src/Installer.php:948-953`). Le code généré peut donc être résolu avec des API anciennes incompatibles.
 
-Le `composer.json` généré ne contient pas de licence (`src/Installer.php:967-977`) et son nom est artificiellement `your-vendor/...`, ce qui produit aussi un avertissement de validation.
+Le `composer.json` généré utilise désormais un nom Composer neutre `app/...` et contient une licence explicite.
 
 ### 5.3 Vulnérabilité de l’outillage de test — haute
 

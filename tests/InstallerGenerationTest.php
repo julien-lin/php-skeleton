@@ -46,6 +46,8 @@ final class InstallerGenerationTest extends TestCase
         self::assertFileDoesNotExist($this->projectDir . '/views/home/index.html.vis');
 
         $composer = json_decode((string) file_get_contents($this->projectDir . '/composer.json'), true, 512, JSON_THROW_ON_ERROR);
+        self::assertMatchesRegularExpression('/^app\/[a-z0-9-]+$/', $composer['name']);
+        self::assertStringNotContainsString('your-vendor/', (string) file_get_contents($this->projectDir . '/composer.json'));
         self::assertSame('^1.4', $composer['require']['julienlinard/core-php']);
         self::assertSame('^1.4', $composer['require']['julienlinard/php-router']);
         self::assertSame('*', $composer['require']['ext-mbstring']);
