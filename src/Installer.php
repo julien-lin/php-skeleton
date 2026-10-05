@@ -674,6 +674,7 @@ class EnvValidator
     public static function validate(): void
     {
         self::validateExtensions();
+        self::validateAppEnvironment();
         self::validateAppSecret();
         self::validateAppLocale();
     }
@@ -695,6 +696,31 @@ class EnvValidator
             throw new \RuntimeException(
                 'Extensions PHP requises manquantes: ' . implode(', ', $missingExtensions) . '. ' .
                 'Installez-les avant de démarrer l’application.'
+            );
+        }
+    }
+
+    /**
+     * Valide APP_ENV et APP_DEBUG lorsqu’ils sont définis.
+     *
+     * @throws \RuntimeException Si une valeur d’environnement est invalide
+     */
+    private static function validateAppEnvironment(): void
+    {
+        $appEnv = getenv('APP_ENV') ?: 'local';
+        $supportedEnvironments = ['local', 'development', 'staging', 'production'];
+
+        if (!in_array($appEnv, $supportedEnvironments, true)) {
+            throw new \RuntimeException(
+                "Environnement non supporté: '{$appEnv}'. " .
+                'Environnements supportés: ' . implode(', ', $supportedEnvironments) . '.'
+            );
+        }
+
+        $appDebug = getenv('APP_DEBUG');
+        if ($appDebug !== false && !in_array($appDebug, ['0', '1', 'true', 'false'], true)) {
+            throw new \RuntimeException(
+                "APP_DEBUG doit être défini à 0, 1, true ou false; valeur reçue: '{$appDebug}'."
             );
         }
     }

@@ -108,6 +108,8 @@ PHP);
         $secret = $secretMatches[1];
         $originalSecret = getenv('APP_SECRET');
         $originalLocale = getenv('APP_LOCALE');
+        $originalEnvironment = getenv('APP_ENV');
+        $originalDebug = getenv('APP_DEBUG');
 
         try {
             putenv('APP_SECRET');
@@ -123,9 +125,19 @@ PHP);
             putenv('APP_SECRET=' . bin2hex(random_bytes(32)));
             putenv('APP_LOCALE=de');
             $this->expectRuntimeExceptionFromEnvValidator("Locale non supportée: 'de'");
+
+            putenv('APP_LOCALE=fr');
+            putenv('APP_DEBUG=maybe');
+            $this->expectRuntimeExceptionFromEnvValidator('APP_DEBUG doit être défini');
+
+            putenv('APP_DEBUG=1');
+            putenv('APP_ENV=qa');
+            $this->expectRuntimeExceptionFromEnvValidator("Environnement non supporté: 'qa'");
         } finally {
             $originalSecret === false ? putenv('APP_SECRET') : putenv('APP_SECRET=' . $originalSecret);
             $originalLocale === false ? putenv('APP_LOCALE') : putenv('APP_LOCALE=' . $originalLocale);
+            $originalEnvironment === false ? putenv('APP_ENV') : putenv('APP_ENV=' . $originalEnvironment);
+            $originalDebug === false ? putenv('APP_DEBUG') : putenv('APP_DEBUG=' . $originalDebug);
         }
     }
 

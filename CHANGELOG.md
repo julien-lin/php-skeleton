@@ -33,6 +33,7 @@ et ce projet adhère à [Semantic Versioning](https://semver.org/lang/fr/).
 - Le validateur d’environnement généré refuse aussi l’absence de `APP_SECRET` avant l’activation de l’authentification.
 - Le smoke test du profil base vérifie désormais le message affiché avec un `.env` incomplet.
 - Le profil Vision utilise sa source VCS versionnée lorsque Packagist ne référence pas encore le paquet, puis est couvert par installation, audit et rendu réel.
+- Le validateur d’environnement généré rejette désormais les valeurs inconnues de `APP_ENV` et `APP_DEBUG`.
 - Correction de la réponse `/account` pour les visiteurs non authentifiés.
 
 ## [1.5.13] - 2025-01-XX
