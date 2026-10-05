@@ -5,6 +5,12 @@ Tous les changements notables de ce projet seront documentés dans ce fichier.
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/),
 et ce projet adhère à [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [1.6.1] - 2026-10-05
+
+### 📝 Documentation
+
+- Mise à jour des README pour la release `v1.6.0` et ses nouveautés.
+
 ## [1.6.0] - 2026-10-05
 
 ### Profils et sécurité

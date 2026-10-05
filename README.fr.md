@@ -1,4 +1,4 @@
-# PHP Skeleton v1.5.8
+# PHP Skeleton v1.6.0
 
 [🇬🇧 Lire en anglais](README.md) | [🇫🇷 Lire en français](README.fr.md)
 
@@ -373,7 +373,15 @@ MYSQL_PASSWORD=app_password
 - Composer
 - Docker (optionnel, pour la configuration Docker)
 
-## 🆕 Nouveautés dans v1.5.3
+## 🆕 Nouveautés dans v1.6.0
+
+- ✅ Profil sécurisé avec validation des requêtes, limitation de débit, en-têtes de sécurité et compression gzip
+- ✅ Profils API, Doctrine, Auth et Vision couverts par Composer et des smoke tests d’exécution
+- ✅ Templates et exécution de Composer extraits dans des services injectables
+- ✅ Staging transactionnel, validation des entrées, lint PHP et vérification de cohérence des lockfiles
+- ✅ Renforcement Docker, masquage des secrets et support CI non interactif
+
+### Mises à jour précédentes (v1.5.13)
 
 - ✅ Régénération automatique de l'autoloader après l'installation
 - ✅ Architecture propre avec couche de services
