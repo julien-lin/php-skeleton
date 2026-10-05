@@ -232,7 +232,7 @@ Cette checklist couvre l’optimisation de `php-skeleton`, de son installateur, 
 - [ ] Définir des valeurs par défaut sûres et cohérentes entre CLI, Docker et `.env`.
 - [ ] Vérifier les collisions de ports avant de générer les fichiers Docker.
 - [ ] Vérifier que les options incompatibles ne peuvent pas être sélectionnées ensemble.
-- [ ] Produire un résumé final des choix sans afficher de secret.
+- [x] Produire un résumé final des choix sans afficher de secret.
 
 ---
 

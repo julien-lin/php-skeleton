@@ -208,6 +208,27 @@ class InstallerSecurityTest extends TestCase
         }
     }
 
+    public function testCompletionSummaryListsProfilesWithoutSecrets(): void
+    {
+        $output = '';
+        ob_start();
+        try {
+            $this->reflection->getMethod('displayCompletion')->invoke(null, true, true, true, true, true, true);
+            $output = (string) ob_get_contents();
+        } finally {
+            ob_end_clean();
+        }
+
+        self::assertStringContainsString('Mode: Docker', $output);
+        self::assertStringContainsString('base de données', $output);
+        self::assertStringContainsString('authentification', $output);
+        self::assertStringContainsString('API', $output);
+        self::assertStringContainsString('Vision', $output);
+        self::assertStringContainsString('sécurisé', $output);
+        self::assertStringNotContainsString('MYSQL_PASSWORD=', $output);
+        self::assertStringNotContainsString('MYSQL_ROOT_PASSWORD=', $output);
+    }
+
     /**
      * Test que isExecutable ne permet pas l'injection
      */

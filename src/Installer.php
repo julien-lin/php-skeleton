@@ -51,7 +51,14 @@ class Installer
         // Régénérer l'autoloader après la création des fichiers
         self::regenerateAutoloader($wwwDir);
         
-        self::displayCompletion($useDocker);
+        self::displayCompletion(
+            $useDocker,
+            $installDoctrine,
+            $installAuth,
+            $installApi,
+            $installVision,
+            $installSecure
+        );
     }
     
     private static function displayWelcome(): void
@@ -3237,12 +3244,40 @@ BASH;
         @chmod($scriptPath, 0755);
     }
     
-    private static function displayCompletion(bool $useDocker): void
+    private static function displayCompletion(
+        bool $useDocker,
+        bool $hasDoctrine = false,
+        bool $hasAuth = false,
+        bool $hasApi = false,
+        bool $hasVision = false,
+        bool $hasSecure = false
+    ): void
     {
         echo "\n";
         echo "╔═══════════════════════════════════════════════════════════╗\n";
         echo "║              Installation terminée avec succès !          ║\n";
         echo "╚═══════════════════════════════════════════════════════════╝\n";
+        echo "\n";
+        $profiles = ['base'];
+        if ($hasDoctrine || $hasAuth || $hasApi) {
+            $profiles[] = 'base de données';
+        }
+        if ($hasAuth) {
+            $profiles[] = 'authentification';
+        }
+        if ($hasApi) {
+            $profiles[] = 'API';
+        }
+        if ($hasVision) {
+            $profiles[] = 'Vision';
+        }
+        if ($hasSecure) {
+            $profiles[] = 'sécurisé';
+        }
+
+        echo '🔧 Mode: ' . ($useDocker ? 'Docker' : 'local') . "\n";
+        echo '🧩 Profils: ' . implode(', ', $profiles) . "\n";
+        echo "🔐 Les secrets sont générés dans les fichiers .env : ne les commitez pas.\n";
         echo "\n";
         echo "📝 Prochaines étapes:\n";
         
