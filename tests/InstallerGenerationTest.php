@@ -110,6 +110,8 @@ final class InstallerGenerationTest extends TestCase
         self::assertStringContainsString('ProductController', $index);
         self::assertStringContainsString('registerRoutes(\\App\\Controller\\ProductController::class)', $index);
         self::assertStringContainsString("new CorsMiddleware(getenv('API_CORS_ORIGINS') ?: '')", $index);
+        self::assertStringContainsString("new RequestValidationMiddleware(10_485_760, ['/api'])", $index);
+        self::assertStringContainsString("new RateLimitMiddleware(100, 60, dirname(__DIR__) . '/storage/cache/rate-limit', ['/api'])", $index);
         self::assertStringContainsString('new CsrfMiddleware()', $index);
     }
 

@@ -2491,12 +2491,18 @@ PHP;
             $content .= "\nuse JulienLinard\\Core\\Middleware\\CorsMiddleware;";
         }
         
+        if ($hasApi || $hasSecure) {
+            $content .= <<<'PHP'
+
+use JulienLinard\Core\Middleware\RateLimitMiddleware;
+use JulienLinard\Core\Middleware\RequestValidationMiddleware;
+PHP;
+        }
+
         if ($hasSecure) {
             $content .= <<<'PHP'
 
 use JulienLinard\Core\Middleware\CompressionMiddleware;
-use JulienLinard\Core\Middleware\RateLimitMiddleware;
-use JulienLinard\Core\Middleware\RequestValidationMiddleware;
 use JulienLinard\Core\Middleware\SecurityHeadersMiddleware;
 PHP;
         }
@@ -2671,6 +2677,16 @@ PHP;
 // CORS API : aucune origine n'est autorisée par défaut.
 // Configurez API_CORS_ORIGINS dans .env avec une liste explicite.
 $router->addMiddleware(new CorsMiddleware(getenv('API_CORS_ORIGINS') ?: ''));
+PHP;
+        }
+
+        if ($hasApi && !$hasSecure) {
+            $content .= <<<'PHP'
+
+// Validation et limitation de débit ciblées sur les routes API.
+// La route /health et les routes web ne consomment pas ce quota.
+$router->addMiddleware(new RequestValidationMiddleware(10_485_760, ['/api']));
+$router->addMiddleware(new RateLimitMiddleware(100, 60, dirname(__DIR__) . '/storage/cache/rate-limit', ['/api']));
 PHP;
         }
 
