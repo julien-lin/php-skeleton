@@ -170,6 +170,8 @@ final class InstallerGenerationTest extends TestCase
         self::assertArrayNotHasKey('julienlinard/auth-php', $composer['require']);
         self::assertArrayNotHasKey('julienlinard/php-api', $composer['require']);
         self::assertFileExists($this->projectDir . '/config/database.php');
+        self::assertMatchesRegularExpression('/^DB_PASS=[a-f0-9]{32}$/m', (string) file_get_contents($this->projectDir . '/.env'));
+        self::assertStringNotContainsString('DB_PASS=change-me', (string) file_get_contents($this->projectDir . '/.env'));
         self::assertFileDoesNotExist($this->projectDir . '/src/Entity/User.php');
         self::assertFileDoesNotExist($this->projectDir . '/src/Controller/AuthController.php');
         self::assertFileDoesNotExist($this->projectDir . '/src/Entity/Product.php');

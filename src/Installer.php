@@ -1432,14 +1432,11 @@ DB_USER=app_user
 DB_PASS=change-me
 ENV;
 
-            $env .= <<<'ENV'
-
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_NAME=app_db
-DB_USER=app_user
-DB_PASS=change-me
-ENV;
+            $env .= "\nDB_HOST=127.0.0.1\n";
+            $env .= "DB_PORT=3306\n";
+            $env .= "DB_NAME=app_db\n";
+            $env .= "DB_USER=app_user\n";
+            $env .= 'DB_PASS=' . bin2hex(random_bytes(16)) . "\n";
         }
 
         if ($hasApi) {

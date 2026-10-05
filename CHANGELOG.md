@@ -27,6 +27,7 @@ et ce projet adhère à [Semantic Versioning](https://semver.org/lang/fr/).
 - Renforcement de la matrice de génération : profils Auth/DB/API/Vision validés par Composer et dépendances non sélectionnées vérifiées.
 - Le profil sécurisé vérifie désormais l’ordre du pipeline middleware dans le bootstrap généré.
 - Le bootstrap Auth généré est testé avec une connexion DB invalide et remonte une erreur contextualisée.
+- Le profil local Doctrine génère désormais un mot de passe DB aléatoire dans `.env`; `change-me` reste limité aux fichiers d’exemple.
 - Correction de la réponse `/account` pour les visiteurs non authentifiés.
 
 ## [1.5.13] - 2025-01-XX

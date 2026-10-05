@@ -251,8 +251,8 @@ Cette checklist couvre l’optimisation de `php-skeleton`, de son installateur, 
 
 ### P0 — Secrets et valeurs par défaut
 
-- [ ] Supprimer les mots de passe et secrets par défaut prévisibles.
-- [ ] Générer des secrets locaux aléatoires lorsque cela est nécessaire.
+- [x] Supprimer les mots de passe et secrets par défaut prévisibles.
+- [x] Générer des secrets locaux aléatoires lorsque cela est nécessaire.
 - [ ] Désactiver le mode debug dans les valeurs de production par défaut.
 - [ ] Ne pas exposer la base de données sur toutes les interfaces par défaut.
 - [ ] Ne pas utiliser un hôte MySQL universel permissif dans les templates de production.
