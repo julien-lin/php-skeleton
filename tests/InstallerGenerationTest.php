@@ -361,6 +361,27 @@ SQL);
         }
     }
 
+    public function testGeneratedAuthBootstrapReportsConnectionFailure(): void
+    {
+        $reflection = new ReflectionClass(Installer::class);
+        $this->invokeSilently($reflection, 'createLocalStructure', $this->projectDir, true, true);
+        $this->invoke($reflection, 'copyComposerJson', $this->projectDir, $this->projectDir, true, true);
+        $this->runComposer($this->projectDir, 'install', '--no-dev', '--no-interaction', '--prefer-dist');
+
+        $env = str_replace(
+            'DB_PORT=3306',
+            'DB_PORT=1',
+            (string) file_get_contents($this->projectDir . '/.env')
+        );
+        self::assertNotSame(false, file_put_contents($this->projectDir . '/.env', $env));
+
+        [$exitCode, $output, $errors] = $this->runGeneratedRequest('/login');
+        $failure = $output . "\n" . $errors;
+
+        self::assertNotSame(0, $exitCode, $failure);
+        self::assertStringContainsString('Connexion à la base de données impossible', $failure);
+    }
+
     public function testApiProfileIncludesDoctrineAndApiArtifacts(): void
     {
         $reflection = new ReflectionClass(Installer::class);
@@ -538,6 +559,14 @@ SQL);
      */
     private function runGeneratedHealthRequest(): array
     {
+        return $this->runGeneratedRequest('/health');
+    }
+
+    /**
+     * @return array{0: int, 1: string, 2: string}
+     */
+    private function runGeneratedRequest(string $uri): array
+    {
         $pipes = [];
         $process = proc_open(
             [PHP_BINARY, $this->projectDir . '/public/index.php'],
@@ -546,7 +575,7 @@ SQL);
             $this->projectDir,
             array_merge($_ENV, [
                 'REQUEST_METHOD' => 'GET',
-                'REQUEST_URI' => '/health',
+                'REQUEST_URI' => $uri,
             ])
         );
 

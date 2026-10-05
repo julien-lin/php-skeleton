@@ -307,7 +307,7 @@ Cette checklist couvre l’optimisation de `php-skeleton`, de son installateur, 
 - [x] Utiliser la commande officielle de migration fournie par la bibliothèque.
 - [x] Ajouter un contrôle de connexion explicite et exploitable.
 - [x] Ajouter un smoke test de migration sur une MariaDB temporaire dans Docker.
-- [ ] Tester les erreurs de connexion et de configuration.
+- [x] Tester les erreurs de connexion et de configuration.
 
 ### P0 — Profil authentification
 
@@ -455,7 +455,7 @@ Cette checklist couvre l’optimisation de `php-skeleton`, de son installateur, 
 - [ ] Démarrer l’application générée.
 - [ ] Appeler la route de santé ou la route d’accueil.
 - [ ] Vérifier un rendu de réponse correct.
-- [ ] Vérifier les erreurs de configuration avec un `.env` incomplet.
+- [x] Vérifier les erreurs de configuration avec un `.env` incomplet.
 - [x] Vérifier la génération et l’exécution des migrations lorsque Doctrine est activé sur MariaDB.
 - [x] Vérifier le flux `AuthManager` généré sur SQLite : utilisateur, hash, session et logout.
 
