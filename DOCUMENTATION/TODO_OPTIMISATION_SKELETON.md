@@ -169,8 +169,8 @@ Cette checklist couvre l’optimisation de `php-skeleton`, de son installateur, 
 - [x] Définir comment les middlewares qui modifient la réponse après l’exécution du contrôleur sont exécutés.
 - [x] Intégrer proprement le traitement des en-têtes de sécurité.
 - [x] Intégrer proprement la compression uniquement si la réponse complète est disponible au bon moment.
-- [ ] Vérifier que la compression ne s’applique pas aux réponses déjà compressées, aux flux ou aux réponses incompatibles.
-- [ ] Ajouter des tests sur les codes HTTP, les en-têtes et le corps de réponse.
+- [x] Vérifier que la compression ne s’applique pas aux réponses déjà compressées, aux flux ou aux réponses incompatibles.
+- [x] Ajouter des tests sur les codes HTTP, les en-têtes et le corps de réponse.
 
 ### P1 — Ordre des middlewares
 
