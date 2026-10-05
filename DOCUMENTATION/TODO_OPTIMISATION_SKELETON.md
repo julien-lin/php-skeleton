@@ -256,7 +256,7 @@ Cette checklist couvre l’optimisation de `php-skeleton`, de son installateur, 
 - [x] Désactiver le mode debug dans les valeurs de production par défaut.
 - [x] Ne pas exposer la base de données sur toutes les interfaces par défaut.
 - [x] Ne pas utiliser un hôte MySQL universel permissif dans les templates de production.
-- [ ] Vérifier que les secrets ne sont pas écrits dans les logs, exceptions ou messages de succès.
+- [x] Vérifier que les secrets ne sont pas écrits dans les logs, exceptions ou messages de succès.
 - [ ] Documenter clairement quels fichiers doivent rester hors Git.
 
 ### P0 — Validation de configuration

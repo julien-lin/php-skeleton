@@ -471,9 +471,10 @@ SQL);
         $this->runComposer($this->projectDir, 'install', '--no-dev', '--no-interaction', '--prefer-dist');
         $this->runComposer($this->projectDir, 'audit', '--no-interaction');
 
+        $sentinelPassword = 'super-secret-not-for-output';
         $env = str_replace(
-            'DB_PORT=3306',
-            'DB_PORT=1',
+            ['DB_PORT=3306', 'DB_PASS='],
+            ['DB_PORT=1', 'DB_PASS=' . $sentinelPassword],
             (string) file_get_contents($this->projectDir . '/.env')
         );
         self::assertNotSame(false, file_put_contents($this->projectDir . '/.env', $env));
@@ -483,6 +484,7 @@ SQL);
 
         self::assertNotSame(0, $exitCode, $failure);
         self::assertStringContainsString('Connexion à la base de données impossible', $failure);
+        self::assertStringNotContainsString($sentinelPassword, $failure);
     }
 
     public function testApiProfileIncludesDoctrineAndApiArtifacts(): void
