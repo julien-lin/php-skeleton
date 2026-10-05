@@ -59,6 +59,35 @@ final class InstallerGenerationTest extends TestCase
         self::assertMatchesRegularExpression('/^APP_SECRET=[a-f0-9]{64}$/m', (string) file_get_contents($this->projectDir . '/.env'));
     }
 
+    public function testComposerJsonGenerationIsPureAndProfileAware(): void
+    {
+        $reflection = new ReflectionClass(Installer::class);
+        $content = $this->invoke(
+            $reflection,
+            'generateComposerJson',
+            'My Demo App',
+            false,
+            true,
+            true,
+            true,
+            true
+        );
+
+        $composer = json_decode($content, true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertSame('app/my-demo-app', $composer['name']);
+        self::assertArrayHasKey('julienlinard/doctrine-php', $composer['require']);
+        self::assertArrayHasKey('julienlinard/auth-php', $composer['require']);
+        self::assertArrayHasKey('julienlinard/php-api', $composer['require']);
+        self::assertArrayHasKey('julienlinard/php-vision', $composer['require']);
+        self::assertArrayHasKey('doctrine:migrate', $composer['scripts']);
+        self::assertSame(
+            'https://github.com/julien-lin/php-vision',
+            $composer['repositories'][0]['url']
+        );
+        self::assertFileDoesNotExist($this->projectDir . '/composer.json');
+    }
+
     public function testGeneratedEnvironmentValidatorEnforcesSafeDefaults(): void
     {
         $reflection = new ReflectionClass(Installer::class);
@@ -868,9 +897,9 @@ SQL);
         self::assertStringContainsString("APP_DEBUG=0", $productionEnv);
     }
 
-    private function invoke(ReflectionClass $reflection, string $method, mixed ...$arguments): void
+    private function invoke(ReflectionClass $reflection, string $method, mixed ...$arguments): mixed
     {
-        $reflection->getMethod($method)->invoke(null, ...$arguments);
+        return $reflection->getMethod($method)->invoke(null, ...$arguments);
     }
 
     private function invokeSilently(ReflectionClass $reflection, string $method, mixed ...$arguments): void

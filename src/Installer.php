@@ -1394,12 +1394,6 @@ PHP;
         bool $hasSecure = false
     ): void
     {
-        if ($hasAuth || $hasApi) {
-            $hasDoctrine = true;
-        }
-
-        $projectName = basename($baseDir);
-        self::validateProjectName($projectName);
         $targetComposer = $targetDir . '/composer.json';
 
         if (is_file($targetComposer)) {
@@ -1410,13 +1404,42 @@ PHP;
                 );
             }
         }
-        
+
+        $content = self::generateComposerJson(
+            basename($baseDir),
+            $hasDoctrine,
+            $hasAuth,
+            $hasApi,
+            $hasVision,
+            $hasSecure
+        );
+
+        if (file_put_contents($targetComposer, $content) === false) {
+            throw new \RuntimeException("Impossible d'écrire {$targetComposer}.");
+        }
+    }
+
+    private static function generateComposerJson(
+        string $projectName,
+        bool $hasDoctrine,
+        bool $hasAuth,
+        bool $hasApi = false,
+        bool $hasVision = false,
+        bool $hasSecure = false
+    ): string
+    {
+        if ($hasAuth || $hasApi) {
+            $hasDoctrine = true;
+        }
+
+        self::validateProjectName($projectName);
+
         $require = [
             'php' => '^8.1',
             'julienlinard/core-php' => '^1.4',
             'julienlinard/php-router' => '^1.4'
         ];
-        
+
         if ($hasDoctrine) {
             $require['julienlinard/doctrine-php'] = '^1.2';
             $require['ext-pdo'] = '*';
@@ -1424,7 +1447,7 @@ PHP;
         }
 
         $require['ext-mbstring'] = '*';
-        
+
         if ($hasAuth) {
             $require['julienlinard/auth-php'] = '^1.3';
         }
@@ -1436,11 +1459,11 @@ PHP;
         if ($hasVision) {
             $require['julienlinard/php-vision'] = '^1.0';
         }
-        
+
         // Normaliser le nom du projet (minuscules, remplacer espaces et caractères spéciaux par des tirets)
-        $normalizedName = strtolower(preg_replace('/[^a-z0-9]+/', '-', $projectName));
+        $normalizedName = preg_replace('/[^a-z0-9]+/', '-', strtolower($projectName));
         $normalizedName = trim($normalizedName, '-');
-        
+
         $json = [
             'name' => 'app/' . $normalizedName,
             'description' => 'PHP application built with JulienLinard PHP Framework',
@@ -1464,7 +1487,7 @@ PHP;
                 ],
             ];
         }
-        
+
         // Ajouter les scripts Composer pour doctrine-php si installé
         if ($hasDoctrine) {
             $json['scripts'] = [
@@ -1476,9 +1499,8 @@ PHP;
                 'doctrine:status' => 'vendor/bin/doctrine-migrate status'
             ];
         }
-        
-        $content = json_encode($json, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
-        file_put_contents($targetComposer, $content);
+
+        return json_encode($json, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
     }
     
     private static function createWwwGitignore(string $wwwDir): void
