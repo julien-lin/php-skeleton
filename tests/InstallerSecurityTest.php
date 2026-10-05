@@ -206,6 +206,16 @@ class InstallerSecurityTest extends TestCase
         } catch (\RuntimeException $exception) {
             self::assertStringContainsString('Valeur invalide pour nom de la base de données', $exception->getMessage());
         }
+
+        $invalid = $valid;
+        $invalid['APACHE_PORT'] = '3306';
+        $invalid['MARIADB_PORT'] = '3306';
+        try {
+            $method->invoke(null, $invalid, true);
+            self::fail('Deux ports Docker identiques doivent être rejetés.');
+        } catch (\RuntimeException $exception) {
+            self::assertStringContainsString('Collision de ports Docker', $exception->getMessage());
+        }
     }
 
     public function testCompletionSummaryListsProfilesWithoutSecrets(): void

@@ -1655,14 +1655,19 @@ ENV;
             self::validateDockerIdentifier($key, $label, $data[$key] ?? null);
         }
 
-        self::validateDockerPort('APACHE_PORT', $data['APACHE_PORT'] ?? null);
+        $apachePort = self::validateDockerPort('APACHE_PORT', $data['APACHE_PORT'] ?? null);
 
         if (!$hasDatabase) {
             return;
         }
 
         self::validateDockerIdentifier('MARIADB_CONTAINER', 'nom du container MariaDB', $data['MARIADB_CONTAINER'] ?? null);
-        self::validateDockerPort('MARIADB_PORT', $data['MARIADB_PORT'] ?? null);
+        $mariadbPort = self::validateDockerPort('MARIADB_PORT', $data['MARIADB_PORT'] ?? null);
+        if ($apachePort === $mariadbPort) {
+            throw new \RuntimeException(
+                "Collision de ports Docker: APACHE_PORT et MARIADB_PORT utilisent tous les deux {$apachePort}."
+            );
+        }
         self::validateDatabaseIdentifier('MYSQL_DATABASE', 'nom de la base de données', $data['MYSQL_DATABASE'] ?? null);
         self::validateDatabaseIdentifier('MYSQL_USER', 'utilisateur MariaDB', $data['MYSQL_USER'] ?? null);
     }
@@ -1676,7 +1681,7 @@ ENV;
         }
     }
 
-    private static function validateDockerPort(string $key, mixed $value): void
+    private static function validateDockerPort(string $key, mixed $value): int
     {
         $port = filter_var(
             $value,
@@ -1689,6 +1694,8 @@ ENV;
                 "Port invalide pour {$key}. Utilisez un entier compris entre 1 et 65535."
             );
         }
+
+        return $port;
     }
 
     private static function validateDatabaseIdentifier(string $key, string $label, mixed $value): void
