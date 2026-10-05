@@ -178,7 +178,7 @@ Cette checklist couvre l’optimisation de `php-skeleton`, de son installateur, 
 - [ ] Définir l’ordre officiel du profil sécurisé.
 - [ ] Définir l’ordre officiel du profil API.
 - [ ] Définir les middlewares qui s’appliquent globalement et ceux qui s’appliquent par groupe de routes.
-- [ ] Documenter explicitement l’absence de CSRF par défaut sur les routes API stateless.
+- [x] Documenter explicitement l’absence de CSRF par défaut sur les routes API stateless.
 - [ ] Vérifier que la limitation de débit ne bloque pas les routes de santé ou les migrations opérationnelles.
 
 ---
@@ -328,9 +328,9 @@ Cette checklist couvre l’optimisation de `php-skeleton`, de son installateur, 
 - [x] Générer une configuration API minimale et documentée.
 - [ ] Définir la gestion des erreurs et le format des réponses.
 - [ ] Définir l’authentification API séparément de la session web si nécessaire.
-- [ ] Configurer CORS avec une liste d’origines explicite.
+- [x] Configurer CORS avec une liste d’origines explicite.
 - [ ] Appliquer la validation et la limitation de débit au niveau des routes API.
-- [ ] Ne pas activer CSRF par défaut sur les routes stateless.
+- [x] Ne pas activer CSRF par défaut sur les routes stateless.
 - [ ] Ajouter des tests de payload invalide, erreur d’authentification et réponse JSON.
 
 ### P1 — Profil interface optionnelle

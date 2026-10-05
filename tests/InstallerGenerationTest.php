@@ -103,10 +103,14 @@ final class InstallerGenerationTest extends TestCase
         self::assertFileExists($this->projectDir . '/src/Entity/Product.php');
         self::assertFileExists($this->projectDir . '/src/Controller/ProductController.php');
         self::assertFileExists($this->projectDir . '/migrations/20261005_create_products.sql');
+        self::assertStringContainsString('API_CORS_ORIGINS=', (string) file_get_contents($this->projectDir . '/.env'));
+        self::assertStringContainsString('API_CORS_ORIGINS=', (string) file_get_contents($this->projectDir . '/.env.example'));
 
         $index = (string) file_get_contents($this->projectDir . '/public/index.php');
         self::assertStringContainsString('ProductController', $index);
         self::assertStringContainsString('registerRoutes(\\App\\Controller\\ProductController::class)', $index);
+        self::assertStringContainsString("new CorsMiddleware(getenv('API_CORS_ORIGINS') ?: '')", $index);
+        self::assertStringContainsString('new CsrfMiddleware()', $index);
     }
 
     public function testApiProfileResolvesGeneratedDependencies(): void

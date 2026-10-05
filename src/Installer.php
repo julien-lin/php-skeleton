@@ -36,7 +36,7 @@ class Installer
         if ($useDocker) {
             // Configurer l'environnement AVANT de créer docker-compose.yml
             // pour avoir les noms de conteneurs
-            self::configureEnv($installDoctrine);
+            self::configureEnv($installDoctrine, $installApi);
             self::setupDocker($installDoctrine, $installAuth, $installApi, $installVision, $installSecure);
         } else {
             self::setupLocal($installDoctrine, $installAuth, $installApi, $installVision, $installSecure);
@@ -1225,7 +1225,7 @@ PHP;
         if ($installApi) {
             self::createApiFiles($baseDir);
         }
-        self::createLocalEnvFiles($baseDir, $installDoctrine);
+        self::createLocalEnvFiles($baseDir, $installDoctrine, $installApi);
         self::createBootstrapServices($baseDir);
         self::createWwwGitignore($baseDir);
         
@@ -1406,7 +1406,7 @@ SQL;
      * démarrer sans base de données, tandis que le profil Doctrine reçoit des
      * variables DB explicites à compléter par le développeur.
      */
-    private static function createLocalEnvFiles(string $baseDir, bool $hasDoctrine): void
+    private static function createLocalEnvFiles(string $baseDir, bool $hasDoctrine, bool $hasApi = false): void
     {
         $envExample = <<<'ENV'
 APP_NAME=My PHP Application
@@ -1440,6 +1440,17 @@ DB_NAME=app_db
 DB_USER=app_user
 DB_PASS=change-me
 ENV;
+        }
+
+        if ($hasApi) {
+            $envExample .= <<<'ENV'
+
+# Origines CORS autorisées, séparées par des virgules.
+# Laisser vide pour désactiver les requêtes cross-origin.
+API_CORS_ORIGINS=
+ENV;
+
+            $env .= "\nAPI_CORS_ORIGINS=\n";
         }
 
         $envPath = $baseDir . '/.env';
@@ -1494,7 +1505,7 @@ ENV;
         self::fixPermissions($baseDir, false);
     }
     
-    private static function configureEnv(bool $hasDatabase): void
+    private static function configureEnv(bool $hasDatabase, bool $hasApi = false): void
     {
         echo "\n⚙️  Configuration de l'environnement (.env)...\n";
         
@@ -1525,7 +1536,7 @@ ENV;
             self::$containerNames['mariadb'] = $envData['MARIADB_CONTAINER'];
         }
         
-        self::createEnvFile($envData, $hasDatabase);
+        self::createEnvFile($envData, $hasDatabase, $hasApi);
         
         echo "✅ Fichier .env créé.\n";
     }
@@ -1546,7 +1557,7 @@ ENV;
         return empty($answer) ? $default : $answer;
     }
     
-    private static function createEnvFile(array $data, bool $hasDatabase): void
+    private static function createEnvFile(array $data, bool $hasDatabase, bool $hasApi = false): void
     {
         $baseDir = self::getProjectRoot();
         $envPath = $baseDir . '/.env';
@@ -1578,6 +1589,9 @@ ENV;
         $wwwContent .= "APP_SECRET=" . bin2hex(random_bytes(32)) . "\n";
         $wwwContent .= "APP_DEBUG=1\n";
         $wwwContent .= "APP_LOCALE=fr\n";
+        if ($hasApi) {
+            $wwwContent .= "API_CORS_ORIGINS=\n";
+        }
         
         // Créer le dossier www/ s'il n'existe pas
         $wwwDir = dirname($wwwEnvPath);
@@ -1588,10 +1602,10 @@ ENV;
         file_put_contents($wwwEnvPath, $wwwContent);
         
         // Créer le fichier .env.example
-        self::createEnvExample($baseDir, $wwwDir, $hasDatabase);
+        self::createEnvExample($baseDir, $wwwDir, $hasDatabase, $hasApi);
     }
     
-    private static function createEnvExample(string $baseDir, string $wwwDir, bool $hasDatabase): void
+    private static function createEnvExample(string $baseDir, string $wwwDir, bool $hasDatabase, bool $hasApi = false): void
     {
         $envExamplePath = $baseDir . '/.env.example';
         $wwwEnvExamplePath = $wwwDir . '/.env.example';
@@ -1653,6 +1667,18 @@ MARIADB_CONTAINER=mariadb_app
 MYSQL_DATABASE=app_db
 MYSQL_USER=app_user
 MYSQL_PASSWORD=change-me
+
+ENV;
+        }
+
+        if ($hasApi) {
+            $wwwContent .= <<<'ENV'
+# ============================================
+# Configuration CORS API
+# ============================================
+# Origines autorisées, séparées par des virgules.
+# Laisser vide pour désactiver les requêtes cross-origin.
+API_CORS_ORIGINS=
 
 ENV;
         }
@@ -2442,6 +2468,7 @@ PHP;
 
         if ($hasApi) {
             $content .= "\nuse App\Controller\ProductController;";
+            $content .= "\nuse JulienLinard\\Core\\Middleware\\CorsMiddleware;";
         }
         
         if ($hasSecure) {
@@ -2616,6 +2643,18 @@ if (class_exists(\App\Service\FileUploadService::class)) {
 // CONCEPT PÉDAGOGIQUE : Router (Routeur)
 // Le router fait le lien entre les URLs et les méthodes des contrôleurs
 $router = $app->getRouter();
+PHP;
+
+        if ($hasApi) {
+            $content .= <<<'PHP'
+
+// CORS API : aucune origine n'est autorisée par défaut.
+// Configurez API_CORS_ORIGINS dans .env avec une liste explicite.
+$router->addMiddleware(new CorsMiddleware(getenv('API_CORS_ORIGINS') ?: ''));
+PHP;
+        }
+
+        $content .= <<<'PHP'
 
 // Ajouter le middleware CSRF globalement pour toutes les requêtes
 // CONCEPT PÉDAGOGIQUE : Middleware Global

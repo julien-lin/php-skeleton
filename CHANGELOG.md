@@ -13,6 +13,7 @@ et ce projet adhère à [Semantic Versioning](https://semver.org/lang/fr/).
 - HSTS est activé uniquement en production et les compteurs de limitation sont stockés dans `storage/cache/rate-limit`.
 - Documentation et tests de génération du profil sécurisé ajoutés.
 - Ajout d’un test d’intégration qui installe les dépendances du profil API et instancie ses contrôleur et entité générés.
+- Le profil API génère une allowlist CORS vide par défaut et documente `API_CORS_ORIGINS`.
 
 ## [1.5.13] - 2025-01-XX
 

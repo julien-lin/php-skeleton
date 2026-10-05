@@ -71,6 +71,7 @@ Répondez simplement `y` pour oui ou `N` pour non (par défaut).
 
 Le profil API active automatiquement le profil base de données. Le profil Vision est indépendant et n'est jamais installé dans le profil de base.
 Le profil sécurisé utilise uniquement les middlewares déjà fournis par Core/Router. Les compteurs de limitation sont stockés dans `storage/cache/rate-limit`, HSTS est activé uniquement en production et CSRF reste actif pour les formulaires web ; les routes API restent stateless.
+Le profil API n'autorise aucune origine cross-origin par défaut. Définissez `API_CORS_ORIGINS` dans `.env` avec une liste d'origines séparées par des virgules si un client navigateur doit utiliser CORS ; les routes API sont exclues de CSRF.
 
 **L'autoloader est automatiquement régénéré** après l'installation, votre application est donc prête à fonctionner immédiatement !
 

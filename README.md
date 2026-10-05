@@ -71,6 +71,7 @@ Simply answer `y` for yes or `N` for no (default).
 
 The API profile automatically enables the database profile. The Vision profile is independent and is never installed in the base profile.
 The secure profile uses only the existing Core/Router middleware stack. It stores rate-limit counters under `storage/cache/rate-limit`, enables HSTS only in production, and keeps CSRF enabled for web forms while API routes remain stateless.
+The API profile exposes no cross-origin access by default. Set `API_CORS_ORIGINS` in `.env` to a comma-separated allowlist when browser clients need CORS; API routes are excluded from CSRF checks.
 
 **The autoloader is automatically regenerated** after installation, so your application is ready to run immediately!
 
