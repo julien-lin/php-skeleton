@@ -1553,24 +1553,39 @@ GITIGNORE;
         bool $installSecure = false
     ): void
     {
+        self::createLocalApplicationFiles(
+            $baseDir,
+            $installDoctrine,
+            $installAuth,
+            $installApi,
+            $installVision,
+            $installSecure
+        );
+        self::createLocalEnvironment($baseDir, $installDoctrine, $installApi);
+
+        echo "✅ Structure locale créée.\n";
+    }
+
+    private static function createLocalApplicationFiles(
+        string $baseDir,
+        bool $installDoctrine,
+        bool $installAuth,
+        bool $installApi = false,
+        bool $installVision = false,
+        bool $installSecure = false
+    ): void
+    {
         $publicDir = $baseDir . '/public';
         $viewsDir = $baseDir . '/views';
         $templatesDir = $viewsDir . '/_templates';
         $homeDir = $viewsDir . '/home';
-        
-        if (!is_dir($publicDir)) {
-            mkdir($publicDir, 0755, true);
+
+        foreach ([$publicDir, $viewsDir, $templatesDir, $homeDir] as $directory) {
+            if (!is_dir($directory)) {
+                mkdir($directory, 0755, true);
+            }
         }
-        if (!is_dir($viewsDir)) {
-            mkdir($viewsDir, 0755, true);
-        }
-        if (!is_dir($templatesDir)) {
-            mkdir($templatesDir, 0755, true);
-        }
-        if (!is_dir($homeDir)) {
-            mkdir($homeDir, 0755, true);
-        }
-        
+
         self::createHtaccess($publicDir);
         self::createHeaderTemplate($templatesDir, $installVision);
         self::createFooterTemplate($templatesDir);
@@ -1583,13 +1598,14 @@ GITIGNORE;
         if ($installApi) {
             self::createApiFiles($baseDir);
         }
-        self::createLocalEnvFiles($baseDir, $installDoctrine, $installApi);
         self::createBootstrapServices($baseDir, $installDoctrine || $installAuth || $installApi);
         self::createWwwGitignore($baseDir);
-        
         self::createPublicIndex($publicDir, $installDoctrine, $installAuth, $installApi, $installSecure);
-        
-        echo "✅ Structure locale créée.\n";
+    }
+
+    private static function createLocalEnvironment(string $baseDir, bool $hasDoctrine, bool $hasApi = false): void
+    {
+        self::createLocalEnvFiles($baseDir, $hasDoctrine, $hasApi);
     }
 
     private static function createAuthFiles(string $baseDir): void

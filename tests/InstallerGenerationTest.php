@@ -88,6 +88,22 @@ final class InstallerGenerationTest extends TestCase
         self::assertFileDoesNotExist($this->projectDir . '/composer.json');
     }
 
+    public function testLocalEnvironmentGenerationIsSeparateFromApplicationFiles(): void
+    {
+        $reflection = new ReflectionClass(Installer::class);
+        $this->invokeSilently($reflection, 'createLocalApplicationFiles', $this->projectDir, false, false);
+
+        self::assertFileExists($this->projectDir . '/public/index.php');
+        self::assertFileExists($this->projectDir . '/src/Controller/HomeController.php');
+        self::assertFileDoesNotExist($this->projectDir . '/.env');
+        self::assertFileDoesNotExist($this->projectDir . '/.env.example');
+
+        $this->invokeSilently($reflection, 'createLocalEnvironment', $this->projectDir, false, false);
+
+        self::assertFileExists($this->projectDir . '/.env');
+        self::assertFileExists($this->projectDir . '/.env.example');
+    }
+
     public function testGeneratedEnvironmentValidatorEnforcesSafeDefaults(): void
     {
         $reflection = new ReflectionClass(Installer::class);
