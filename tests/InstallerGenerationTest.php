@@ -668,6 +668,19 @@ SQL);
         $this->invoke($reflection, 'validateGeneratedPhpFiles', $this->projectDir);
     }
 
+    public function testGenerationSupportsPathsWithSpaces(): void
+    {
+        $reflection = new ReflectionClass(Installer::class);
+        $pathWithSpaces = $this->projectDir . '/project with spaces & accents';
+        self::assertTrue(mkdir($pathWithSpaces, 0755, true));
+
+        $this->invokeSilently($reflection, 'createLocalStructure', $pathWithSpaces, false, false);
+
+        self::assertFileExists($pathWithSpaces . '/public/index.php');
+        self::assertFileExists($pathWithSpaces . '/src/Service/EnvValidator.php');
+        $this->invoke($reflection, 'validateGeneratedPhpFiles', $pathWithSpaces);
+    }
+
     public function testDockerBaseProfileDoesNotGenerateDatabaseService(): void
     {
         $reflection = new ReflectionClass(Installer::class);

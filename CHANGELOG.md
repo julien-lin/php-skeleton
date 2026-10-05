@@ -41,6 +41,8 @@ et ce projet adhère à [Semantic Versioning](https://semver.org/lang/fr/).
 - Les fichiers PHP générés sont contrôlés par `php -l` avant l’installation des dépendances.
 - Les Dockerfiles installent uniquement `mbstring`/`opcache`, et `pdo`/`pdo_mysql` pour les profils DB.
 - Les répertoires d’upload générés bloquent désormais l’exécution des scripts PHP/CGI.
+- La génération est préparée dans un staging temporaire et la publication restaure les fichiers modifiés en cas d’échec.
+- L’installateur accepte `PHP_SKELETON_NON_INTERACTIVE=1` pour utiliser les valeurs par défaut en CI.
 - Correction de la réponse `/account` pour les visiteurs non authentifiés.
 
 ## [1.5.13] - 2025-01-XX

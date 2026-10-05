@@ -191,20 +191,20 @@ Cette checklist couvre l’optimisation de `php-skeleton`, de son installateur, 
 - [ ] Ajouter une option explicite et documentée pour reprendre un répertoire existant si ce cas est réellement nécessaire.
 - [x] Supprimer toute logique de nettoyage récursif non limitée aux fichiers créés par l’installateur.
 - [x] Ne jamais supprimer le README, la licence, la documentation, le lockfile ou des fichiers inconnus de l’installateur.
-- [ ] Écrire les fichiers dans une zone temporaire avant de les déplacer vers la destination finale.
-- [ ] Prévoir une stratégie de rollback si une étape échoue après création partielle.
-- [ ] Rendre l’installation idempotente ou échouer proprement avec un diagnostic explicite.
+- [x] Écrire les fichiers dans une zone temporaire avant de les déplacer vers la destination finale.
+- [x] Prévoir une stratégie de rollback si une étape échoue après création partielle.
+- [x] Rendre l’installation idempotente ou échouer proprement avec un diagnostic explicite.
 
 ### P0 — Exécution des commandes
 
 - [x] Remplacer le parsing fragile des chaînes de commandes par des arguments structurés pour les commandes Composer utilisées par l’installateur.
 - [x] Valider les binaires nécessaires avant de commencer la génération.
-- [ ] Échapper correctement les chemins et arguments transmis aux processus externes.
-- [ ] Capturer séparément sortie standard, sortie d’erreur et code retour.
-- [ ] Arrêter immédiatement la génération lorsqu’une commande critique échoue.
+- [x] Échapper correctement les chemins et arguments transmis aux processus externes.
+- [x] Capturer séparément sortie standard, sortie d’erreur et code retour.
+- [x] Arrêter immédiatement la génération lorsqu’une commande critique échoue.
 - [ ] Ne jamais afficher les secrets présents dans les arguments ou l’environnement.
 - [ ] Ajouter un mode verbeux contrôlé par l’utilisateur.
-- [ ] Ajouter un mode non interactif adapté à la CI.
+- [x] Ajouter un mode non interactif adapté à la CI (`PHP_SKELETON_NON_INTERACTIVE=1`).
 
 ### P1 — Découpage de l’installateur
 
@@ -466,8 +466,8 @@ Cette checklist couvre l’optimisation de `php-skeleton`, de son installateur, 
 - [ ] Ajouter un test qui détecte les commandes destructives sur le répertoire cible.
 - [x] Ajouter un test de relance de l’installateur.
 - [x] Ajouter un test de projet cible non vide.
-- [ ] Ajouter un test d’échec de Composer et de rollback.
-- [ ] Ajouter un test de chemins contenant des espaces et caractères spéciaux.
+- [x] Ajouter un test d’échec de Composer et de rollback.
+- [x] Ajouter un test de chemins contenant des espaces et caractères spéciaux.
 
 ### P1 — Qualité de code
 

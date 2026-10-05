@@ -245,6 +245,73 @@ class InstallerSecurityTest extends TestCase
         self::assertStringNotContainsString('MYSQL_ROOT_PASSWORD=', $output);
     }
 
+    public function testStagedPublicationRollsBackOnFailure(): void
+    {
+        $baseDir = sys_get_temp_dir() . '/php-skeleton-publish-' . bin2hex(random_bytes(6));
+        mkdir($baseDir, 0755, true);
+        file_put_contents($baseDir . '/composer.json', '{"name":"julienlinard/php-skeleton"}');
+        file_put_contents($baseDir . '/blocked', 'keep me');
+
+        $stagingDir = $this->reflection->getMethod('createInstallationStagingDirectory')->invoke(null);
+        file_put_contents($stagingDir . '/composer.json', '{"name":"app/generated"}');
+        mkdir($stagingDir . '/blocked', 0755, true);
+        file_put_contents($stagingDir . '/blocked/marker.txt', 'must fail');
+
+        try {
+            $this->expectException(\RuntimeException::class);
+            $this->expectExceptionMessage('Impossible de créer le répertoire');
+            $this->reflection->getMethod('publishInstallationStaging')->invoke(null, $stagingDir, $baseDir, false);
+        } finally {
+            self::assertSame('{"name":"julienlinard/php-skeleton"}', (string) file_get_contents($baseDir . '/composer.json'));
+            self::assertSame('keep me', (string) file_get_contents($baseDir . '/blocked'));
+            $this->removeDirectory($stagingDir);
+            $this->removeDirectory($baseDir);
+        }
+    }
+
+    public function testComposerFailureLeavesFinalDirectoryUntouched(): void
+    {
+        $baseDir = sys_get_temp_dir() . '/php-skeleton-composer-failure-' . bin2hex(random_bytes(6));
+        mkdir($baseDir, 0755, true);
+        file_put_contents($baseDir . '/README.md', 'keep me');
+
+        $stagingDir = $this->reflection->getMethod('createInstallationStagingDirectory')->invoke(null);
+        file_put_contents($stagingDir . '/composer.json', json_encode([
+            'name' => 'app/failing-profile',
+            'require' => ['php' => '>=999.0'],
+        ], JSON_THROW_ON_ERROR));
+
+        ob_start();
+        try {
+            $this->expectException(\RuntimeException::class);
+            $this->expectExceptionMessage('Échec de la résolution des dépendances');
+            $this->reflection->getMethod('installDependencies')->invoke(null, $stagingDir);
+        } finally {
+            ob_end_clean();
+            self::assertSame('keep me', (string) file_get_contents($baseDir . '/README.md'));
+            self::assertFileDoesNotExist($baseDir . '/composer.json');
+            $this->removeDirectory($stagingDir);
+            $this->removeDirectory($baseDir);
+        }
+    }
+
+    public function testNonInteractiveModeUsesDefaultsWithoutReadingStdin(): void
+    {
+        $previous = getenv('PHP_SKELETON_NON_INTERACTIVE');
+        putenv('PHP_SKELETON_NON_INTERACTIVE=1');
+
+        try {
+            self::assertFalse($this->reflection->getMethod('askQuestion')->invoke(null, 'question', false));
+            self::assertSame('default', $this->reflection->getMethod('askInput')->invoke(null, 'question', 'default'));
+        } finally {
+            if ($previous === false) {
+                putenv('PHP_SKELETON_NON_INTERACTIVE');
+            } else {
+                putenv('PHP_SKELETON_NON_INTERACTIVE=' . $previous);
+            }
+        }
+    }
+
     /**
      * Test que isExecutable ne permet pas l'injection
      */

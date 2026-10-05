@@ -19,6 +19,12 @@ cd mon-projet
 
 Le script d'installation interactif sera automatiquement lancé.
 
+Pour une exécution automatisée en CI, utilisez les valeurs par défaut sans interaction :
+
+```bash
+PHP_SKELETON_NON_INTERACTIVE=1 composer create-project julienlinard/php-skeleton mon-projet
+```
+
 ### Méthode 2 : Clonage du dépôt
 
 ```bash
@@ -241,4 +247,3 @@ Pour toute question ou problème, consultez :
 - [Documentation de sécurité](SECURITY.md)
 - [Documentation Docker](DOCKER.md)
 - [Issues GitHub](https://github.com/julien-lin/php-skeleton/issues)
-

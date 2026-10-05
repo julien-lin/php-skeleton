@@ -30,29 +30,37 @@ class Installer
         }
         
         $baseDir = self::getProjectRoot();
-        $wwwDir = $useDocker ? $baseDir . '/www' : $baseDir;
 
         self::assertInstallTargetIsSkeleton($baseDir, $useDocker);
-        
-        if ($useDocker) {
-            // Configurer l'environnement AVANT de créer docker-compose.yml
-            // pour avoir les noms de conteneurs
-            self::configureEnv($installDoctrine, $installApi);
-            self::setupDocker($installDoctrine, $installAuth, $installApi, $installVision, $installSecure);
-        } else {
-            self::setupLocal($installDoctrine, $installAuth, $installApi, $installVision, $installSecure);
-        }
-        
-        self::copyComposerJson($baseDir, $wwwDir, $installDoctrine, $installAuth, $installApi, $installVision, $installSecure);
-        self::validateGeneratedPhpFiles($wwwDir);
 
-        // Le composer.json généré contient déjà le profil choisi : une seule
-        // résolution évite les lockfiles intermédiaires et les incohérences.
-        self::installDependencies($wwwDir);
-        
-        // Régénérer l'autoloader après la création des fichiers
-        self::regenerateAutoloader($wwwDir);
-        
+        $stagingDir = self::createInstallationStagingDirectory();
+        try {
+            $wwwDir = $useDocker ? $stagingDir . '/www' : $stagingDir;
+
+            if ($useDocker) {
+                // Configurer l'environnement dans le staging avant de créer Docker.
+                self::configureEnv($installDoctrine, $installApi, $stagingDir);
+                self::setupDocker($installDoctrine, $installAuth, $installApi, $installVision, $installSecure, $stagingDir);
+            } else {
+                self::setupLocal($installDoctrine, $installAuth, $installApi, $installVision, $installSecure, $stagingDir);
+            }
+
+            self::copyComposerJson($baseDir, $wwwDir, $installDoctrine, $installAuth, $installApi, $installVision, $installSecure);
+            self::validateGeneratedPhpFiles($wwwDir);
+
+            // Le composer.json généré contient déjà le profil choisi : une seule
+            // résolution évite les lockfiles intermédiaires et les incohérences.
+            self::installDependencies($wwwDir);
+
+            // Régénérer l'autoloader après la création des fichiers
+            self::regenerateAutoloader($wwwDir);
+            self::publishInstallationStaging($stagingDir, $baseDir, $useDocker);
+        } catch (\Throwable $exception) {
+            self::removeDirectory($stagingDir);
+            throw $exception;
+        }
+
+        self::removeDirectory($stagingDir);
         self::displayCompletion(
             $useDocker,
             $installDoctrine,
@@ -74,6 +82,10 @@ class Installer
     
     private static function askQuestion(string $question, bool $default = false): bool
     {
+        if (self::isNonInteractive()) {
+            return $default;
+        }
+
         $defaultText = $default ? 'Y' : 'N';
         echo "❓ {$question} [{$defaultText}]: ";
         
@@ -469,12 +481,13 @@ class Installer
         bool $installAuth,
         bool $installApi = false,
         bool $installVision = false,
-        bool $installSecure = false
+        bool $installSecure = false,
+        ?string $baseDir = null
     ): void
     {
         echo "\n🐳 Configuration Docker...\n";
         
-        $baseDir = self::getProjectRoot();
+        $baseDir ??= self::getProjectRoot();
         
         self::createWwwStructure($baseDir, $installDoctrine, $installAuth, $installApi, $installVision, $installSecure);
         self::createDockerFiles($baseDir, $installDoctrine);
@@ -485,6 +498,143 @@ class Installer
     private static function getProjectRoot(): string
     {
         return getcwd() ?: dirname(__DIR__, 1);
+    }
+
+    private static function createInstallationStagingDirectory(): string
+    {
+        $stagingDir = sys_get_temp_dir() . '/php-skeleton-install-' . bin2hex(random_bytes(8));
+        if (!mkdir($stagingDir, 0755, true) && !is_dir($stagingDir)) {
+            throw new \RuntimeException('Impossible de créer le répertoire temporaire de génération.');
+        }
+
+        return $stagingDir;
+    }
+
+    private static function publishInstallationStaging(string $stagingDir, string $baseDir, bool $useDocker): void
+    {
+        $rollbackDir = self::createInstallationStagingDirectory();
+        $backups = [];
+        $directoryBackups = [];
+        $createdFiles = [];
+
+        $files = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($stagingDir, \FilesystemIterator::SKIP_DOTS)
+        );
+
+        try {
+            foreach ($files as $file) {
+                if (!$file->isFile()) {
+                    continue;
+                }
+
+                $sourcePath = $file->getPathname();
+                $relativePath = ltrim(substr($sourcePath, strlen($stagingDir)), DIRECTORY_SEPARATOR);
+                $targetPath = $baseDir . DIRECTORY_SEPARATOR . $relativePath;
+
+                // Une configuration locale existante reste prioritaire sur le secret
+                // généré dans le staging.
+                if (!$useDocker && $relativePath === '.env' && is_file($targetPath)) {
+                    continue;
+                }
+
+                if (is_file($targetPath) && !isset($backups[$targetPath])) {
+                    $backupPath = $rollbackDir . DIRECTORY_SEPARATOR . $relativePath;
+                    $backupDirectory = dirname($backupPath);
+                    if (!is_dir($backupDirectory) && !mkdir($backupDirectory, 0755, true) && !is_dir($backupDirectory)) {
+                        throw new \RuntimeException("Impossible de créer la sauvegarde de {$relativePath}.");
+                    }
+                    if (!copy($targetPath, $backupPath)) {
+                        throw new \RuntimeException("Impossible de sauvegarder {$relativePath} avant publication.");
+                    }
+                    $backups[$targetPath] = $backupPath;
+                } elseif (!file_exists($targetPath)) {
+                    $createdFiles[] = $targetPath;
+                }
+
+                $targetDirectory = dirname($targetPath);
+                if (file_exists($targetDirectory) && !is_dir($targetDirectory)) {
+                    throw new \RuntimeException("Impossible de créer le répertoire {$targetDirectory}.");
+                }
+                if (!is_dir($targetDirectory) && !mkdir($targetDirectory, 0755, true) && !is_dir($targetDirectory)) {
+                    throw new \RuntimeException("Impossible de créer le répertoire {$targetDirectory}.");
+                }
+
+                if (!copy($sourcePath, $targetPath)) {
+                    throw new \RuntimeException("Impossible de publier le fichier généré {$relativePath}.");
+                }
+            }
+
+            if ($useDocker) {
+                foreach (['public', 'src', 'templates', 'config', 'vendor'] as $item) {
+                    $path = $baseDir . DIRECTORY_SEPARATOR . $item;
+                    if (!is_dir($path)) {
+                        continue;
+                    }
+
+                    $backupPath = $rollbackDir . DIRECTORY_SEPARATOR . 'root' . DIRECTORY_SEPARATOR . $item;
+                    self::copyDirectoryTree($path, $backupPath);
+                    $directoryBackups[$path] = $backupPath;
+                }
+
+                self::cleanupRootFiles($baseDir);
+            }
+        } catch (\Throwable $exception) {
+            foreach (array_reverse($createdFiles) as $createdFile) {
+                if (is_file($createdFile)) {
+                    unlink($createdFile);
+                }
+            }
+            foreach ($backups as $targetPath => $backupPath) {
+                $targetDirectory = dirname($targetPath);
+                if (!is_dir($targetDirectory)) {
+                    mkdir($targetDirectory, 0755, true);
+                }
+                copy($backupPath, $targetPath);
+            }
+            foreach ($directoryBackups as $targetPath => $backupPath) {
+                if (is_dir($targetPath)) {
+                    self::removeDirectory($targetPath);
+                }
+                self::copyDirectoryTree($backupPath, $targetPath);
+            }
+            throw $exception;
+        } finally {
+            self::removeDirectory($rollbackDir);
+        }
+    }
+
+    private static function copyDirectoryTree(string $source, string $target): void
+    {
+        if (!is_dir($source)) {
+            throw new \RuntimeException("Répertoire source introuvable: {$source}");
+        }
+        if (!is_dir($target) && !mkdir($target, 0755, true) && !is_dir($target)) {
+            throw new \RuntimeException("Impossible de créer la sauvegarde de {$source}.");
+        }
+
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($source, \FilesystemIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::SELF_FIRST
+        );
+
+        foreach ($iterator as $item) {
+            $relativePath = $iterator->getSubPathName();
+            $targetPath = $target . DIRECTORY_SEPARATOR . $relativePath;
+            if ($item->isDir()) {
+                if (!is_dir($targetPath) && !mkdir($targetPath, 0755, true) && !is_dir($targetPath)) {
+                    throw new \RuntimeException("Impossible de sauvegarder {$relativePath}.");
+                }
+                continue;
+            }
+
+            $targetDirectory = dirname($targetPath);
+            if (!is_dir($targetDirectory) && !mkdir($targetDirectory, 0755, true) && !is_dir($targetDirectory)) {
+                throw new \RuntimeException("Impossible de sauvegarder {$relativePath}.");
+            }
+            if (!copy($item->getPathname(), $targetPath)) {
+                throw new \RuntimeException("Impossible de sauvegarder {$relativePath}.");
+            }
+        }
     }
     
     private static function createWwwStructure(
@@ -1327,11 +1477,12 @@ PHP;
         bool $installAuth,
         bool $installApi = false,
         bool $installVision = false,
-        bool $installSecure = false
+        bool $installSecure = false,
+        ?string $baseDir = null
     ): void
     {
         echo "\n💻 Configuration locale...\n";
-        $baseDir = self::getProjectRoot();
+        $baseDir ??= self::getProjectRoot();
         self::createLocalStructure($baseDir, $installDoctrine, $installAuth, $installApi, $installVision, $installSecure);
         echo "✅ Configuration locale prête.\n";
     }
@@ -1653,7 +1804,7 @@ ENV;
         self::fixPermissions($baseDir, false);
     }
     
-    private static function configureEnv(bool $hasDatabase, bool $hasApi = false): void
+    private static function configureEnv(bool $hasDatabase, bool $hasApi = false, ?string $baseDir = null): void
     {
         echo "\n⚙️  Configuration de l'environnement (.env)...\n";
         
@@ -1686,13 +1837,17 @@ ENV;
             self::$containerNames['mariadb'] = $envData['MARIADB_CONTAINER'];
         }
         
-        self::createEnvFile($envData, $hasDatabase, $hasApi);
+        self::createEnvFile($baseDir ?? self::getProjectRoot(), $envData, $hasDatabase, $hasApi);
         
         echo "✅ Fichier .env créé.\n";
     }
     
     private static function askInput(string $question, string $default = ''): string
     {
+        if (self::isNonInteractive()) {
+            return $default;
+        }
+
         $defaultText = $default ? " [{$default}]" : '';
         echo "❓ {$question}{$defaultText}: ";
         
@@ -1705,6 +1860,16 @@ ENV;
         fclose($handle);
         
         return empty($answer) ? $default : $answer;
+    }
+
+    private static function isNonInteractive(): bool
+    {
+        $value = getenv('PHP_SKELETON_NON_INTERACTIVE');
+        if ($value === false) {
+            return false;
+        }
+
+        return in_array(strtolower(trim($value)), ['1', 'true', 'yes', 'on'], true);
     }
 
     /**
@@ -1771,9 +1936,8 @@ ENV;
         }
     }
     
-    private static function createEnvFile(array $data, bool $hasDatabase, bool $hasApi = false): void
+    private static function createEnvFile(string $baseDir, array $data, bool $hasDatabase, bool $hasApi = false): void
     {
-        $baseDir = self::getProjectRoot();
         $envPath = $baseDir . '/.env';
         $wwwEnvPath = $baseDir . '/www/.env';
         
