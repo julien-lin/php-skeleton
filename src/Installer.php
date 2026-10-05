@@ -1502,8 +1502,8 @@ GITIGNORE;
     private static function createHomeView(string $homeDir, bool $useVision = false): void
     {
         $template = $useVision
-            ? 'views/home/index.html.vis'
-            : 'views/home/index.html.php';
+            ? 'profiles/vision/views/home/index.html.vis'
+            : 'profiles/base/views/home/index.html.php';
         self::writeGeneratedFile($homeDir . '/' . basename($template), self::readInstallerTemplate($template));
     }
     
@@ -3220,8 +3220,8 @@ PHP;
     private static function createHeaderTemplate(string $templatesDir, bool $useVision = false): void
     {
         $template = $useVision
-            ? 'views/_templates/_header.html.vis'
-            : 'views/_templates/_header.html.php';
+            ? 'profiles/vision/views/_templates/_header.html.vis'
+            : 'environments/common/views/_templates/_header.html.php';
 
         self::writeGeneratedFile(
             $templatesDir . '/_header.html.php',
@@ -3233,7 +3233,7 @@ PHP;
     {
         self::writeGeneratedFile(
             $templatesDir . '/_footer.html.php',
-            self::readInstallerTemplate('views/_templates/_footer.html.php')
+            self::readInstallerTemplate('environments/common/views/_templates/_footer.html.php')
         );
     }
     

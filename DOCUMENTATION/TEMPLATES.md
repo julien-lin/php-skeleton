@@ -1,5 +1,14 @@
 # Variables des templates générés
 
+## Organisation des sources
+
+Les templates sources de l’installateur sont organisés selon deux axes :
+
+- `profiles/base/` et `profiles/vision/` regroupent les vues propres à chaque profil.
+- `environments/common/` regroupe les partiels identiques en installation locale et Docker.
+
+L’installateur conserve les chemins générés (`views/home` et `views/_templates`) afin que les applications produites gardent une structure uniforme. Un template spécifique à un nouvel environnement doit être ajouté sous `environments/<nom>/` et sélectionné explicitement par l’installateur.
+
 Cette référence décrit les variables consommées par les fichiers générés par `php-skeleton`. Les valeurs sensibles doivent rester dans `.env` et ne doivent jamais être copiées dans les templates ou commitées.
 
 ## Variables d’environnement locales

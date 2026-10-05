@@ -731,7 +731,7 @@ SQL);
         $this->invokeSilently($reflection, 'createLocalStructure', $this->projectDir, false, false);
 
         self::assertSame(
-            (string) file_get_contents(dirname(__DIR__) . '/templates/installer/views/home/index.html.php'),
+            (string) file_get_contents(dirname(__DIR__) . '/templates/installer/profiles/base/views/home/index.html.php'),
             (string) file_get_contents($this->projectDir . '/views/home/index.html.php')
         );
     }
@@ -742,11 +742,11 @@ SQL);
         $this->invokeSilently($reflection, 'createLocalStructure', $this->projectDir, false, false);
 
         self::assertSame(
-            (string) file_get_contents(dirname(__DIR__) . '/templates/installer/views/_templates/_header.html.php'),
+            (string) file_get_contents(dirname(__DIR__) . '/templates/installer/environments/common/views/_templates/_header.html.php'),
             (string) file_get_contents($this->projectDir . '/views/_templates/_header.html.php')
         );
         self::assertSame(
-            (string) file_get_contents(dirname(__DIR__) . '/templates/installer/views/_templates/_footer.html.php'),
+            (string) file_get_contents(dirname(__DIR__) . '/templates/installer/environments/common/views/_templates/_footer.html.php'),
             (string) file_get_contents($this->projectDir . '/views/_templates/_footer.html.php')
         );
     }
@@ -757,7 +757,7 @@ SQL);
         $this->invokeSilently($reflection, 'createLocalStructure', $this->projectDir, false, false, false, true);
 
         self::assertSame(
-            (string) file_get_contents(dirname(__DIR__) . '/templates/installer/views/_templates/_header.html.vis'),
+            (string) file_get_contents(dirname(__DIR__) . '/templates/installer/profiles/vision/views/_templates/_header.html.vis'),
             (string) file_get_contents($this->projectDir . '/views/_templates/_header.html.php')
         );
     }
