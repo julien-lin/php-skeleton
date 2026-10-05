@@ -59,26 +59,9 @@ final class InstallerGenerationTest extends TestCase
             str_replace('APP_DEBUG=1', 'APP_DEBUG=0', (string) file_get_contents($this->projectDir . '/.env'))
         );
 
-        $pipes = [];
-        $process = proc_open(
-            [PHP_BINARY, $this->projectDir . '/public/index.php'],
-            [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
-            $pipes,
-            $this->projectDir,
-            array_merge($_ENV, [
-                'REQUEST_METHOD' => 'GET',
-                'REQUEST_URI' => '/health',
-            ])
-        );
+        [$exitCode, $output, $errors] = $this->runGeneratedHealthRequest();
 
-        self::assertIsResource($process);
-        $output = stream_get_contents($pipes[1]);
-        $errors = stream_get_contents($pipes[2]);
-        fclose($pipes[1]);
-        fclose($pipes[2]);
-        $exitCode = proc_close($process);
-
-        self::assertSame(0, $exitCode, $errors);
+        self::assertSame(0, $exitCode, "Code de sortie: {$exitCode}\nErreurs:\n{$errors}\nSortie:\n{$output}");
         self::assertJson($output, $errors . "\nSortie HTTP:\n" . $output);
         self::assertSame([
             'status' => 'ok',
@@ -102,6 +85,24 @@ final class InstallerGenerationTest extends TestCase
         self::assertStringContainsString('new CompressionMiddleware([', $index);
         self::assertStringContainsString("'/storage/cache/rate-limit'", $index);
         self::assertStringContainsString("'hsts' => getenv('APP_ENV') === 'production'", $index);
+    }
+
+    public function testSecureProfileInstallsAndServesHealthRoute(): void
+    {
+        $reflection = new ReflectionClass(Installer::class);
+        $this->invokeSilently($reflection, 'createLocalStructure', $this->projectDir, false, false, false, false, true);
+        $this->invoke($reflection, 'copyComposerJson', $this->projectDir, $this->projectDir, false, false, false, false, true);
+        $this->runComposer($this->projectDir, 'install', '--no-dev', '--no-interaction', '--prefer-dist');
+        $this->runComposer($this->projectDir, 'validate', '--no-check-publish', '--no-interaction');
+
+        [$exitCode, $output, $errors] = $this->runGeneratedHealthRequest();
+
+        self::assertSame(0, $exitCode, "Code de sortie sécurisé: {$exitCode}\nErreurs:\n{$errors}\nSortie:\n{$output}");
+        self::assertJson($output, $errors . "\nSortie HTTP sécurisée:\n" . $output);
+        self::assertSame([
+            'status' => 'ok',
+            'framework' => 'php-skeleton',
+        ], json_decode($output, true, 512, JSON_THROW_ON_ERROR));
     }
 
     public function testAuthProfileAlwaysIncludesDoctrine(): void
@@ -446,6 +447,32 @@ SQL);
         $exitCode = proc_close($process);
 
         self::assertSame(0, $exitCode, $output);
+    }
+
+    /**
+     * @return array{0: int, 1: string, 2: string}
+     */
+    private function runGeneratedHealthRequest(): array
+    {
+        $pipes = [];
+        $process = proc_open(
+            [PHP_BINARY, $this->projectDir . '/public/index.php'],
+            [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+            $pipes,
+            $this->projectDir,
+            array_merge($_ENV, [
+                'REQUEST_METHOD' => 'GET',
+                'REQUEST_URI' => '/health',
+            ])
+        );
+
+        self::assertIsResource($process);
+        $output = stream_get_contents($pipes[1]);
+        $errors = stream_get_contents($pipes[2]);
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+
+        return [proc_close($process), $output, $errors];
     }
 
     private function removeDirectory(string $directory): void
