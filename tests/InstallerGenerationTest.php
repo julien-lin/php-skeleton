@@ -82,6 +82,35 @@ final class InstallerGenerationTest extends TestCase
         }
     }
 
+    public function testGeneratedFilesDoNotRepeatRuntimeSecretsOutsideEnv(): void
+    {
+        $reflection = new ReflectionClass(Installer::class);
+        $this->invokeSilently($reflection, 'createLocalStructure', $this->projectDir, true, false);
+
+        $env = (string) file_get_contents($this->projectDir . '/.env');
+        self::assertSame(1, preg_match('/^APP_SECRET=([a-f0-9]{64})$/m', $env, $secretMatches));
+        self::assertSame(1, preg_match('/^DB_PASS=([^\r\n]+)$/m', $env, $passwordMatches));
+        $runtimeSecrets = [$secretMatches[1], $passwordMatches[1]];
+
+        self::assertStringContainsString('/.env', (string) file_get_contents($this->projectDir . '/.gitignore'));
+        self::assertStringContainsString('APP_SECRET=', (string) file_get_contents($this->projectDir . '/.env.example'));
+        self::assertStringContainsString('DB_PASS=change-me', (string) file_get_contents($this->projectDir . '/.env.example'));
+
+        $files = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($this->projectDir, \FilesystemIterator::SKIP_DOTS)
+        );
+        foreach ($files as $file) {
+            if (!$file->isFile() || in_array($file->getFilename(), ['.env', '.env.example'], true)) {
+                continue;
+            }
+
+            $contents = (string) file_get_contents($file->getPathname());
+            foreach ($runtimeSecrets as $secret) {
+                self::assertStringNotContainsString($secret, $contents, $file->getPathname());
+            }
+        }
+    }
+
     public function testBaseProfileInstallsAndServesHealthRoute(): void
     {
         $reflection = new ReflectionClass(Installer::class);
