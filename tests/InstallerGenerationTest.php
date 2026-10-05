@@ -105,6 +105,30 @@ final class InstallerGenerationTest extends TestCase
         ], json_decode($output, true, 512, JSON_THROW_ON_ERROR));
     }
 
+    public function testDatabaseProfileInstallsAndInitializesSqliteEntityManager(): void
+    {
+        $reflection = new ReflectionClass(Installer::class);
+        $this->invokeSilently($reflection, 'createLocalStructure', $this->projectDir, true, false);
+        $this->invoke($reflection, 'copyComposerJson', $this->projectDir, $this->projectDir, true, false);
+        $this->runComposer($this->projectDir, 'install', '--no-dev', '--no-interaction', '--prefer-dist');
+        $this->runComposer($this->projectDir, 'validate', '--no-check-publish', '--no-interaction');
+
+        require_once $this->projectDir . '/vendor/autoload.php';
+
+        $composer = json_decode((string) file_get_contents($this->projectDir . '/composer.json'), true, 512, JSON_THROW_ON_ERROR);
+        self::assertArrayHasKey('julienlinard/doctrine-php', $composer['require']);
+        self::assertArrayNotHasKey('julienlinard/auth-php', $composer['require']);
+        self::assertArrayNotHasKey('julienlinard/php-api', $composer['require']);
+        self::assertFileExists($this->projectDir . '/config/database.php');
+
+        $entityManager = new \JulienLinard\Doctrine\EntityManager([
+            'driver' => 'sqlite',
+            'dbname' => ':memory:',
+        ]);
+
+        self::assertInstanceOf(\PDO::class, $entityManager->getConnection()->getPdo());
+    }
+
     public function testAuthProfileAlwaysIncludesDoctrine(): void
     {
         $reflection = new ReflectionClass(Installer::class);

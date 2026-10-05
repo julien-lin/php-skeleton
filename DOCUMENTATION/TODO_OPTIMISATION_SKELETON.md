@@ -440,7 +440,7 @@ Cette checklist couvre l’optimisation de `php-skeleton`, de son installateur, 
 
 - [x] Générer un projet base dans un répertoire temporaire.
 - [x] Générer un projet sécurisé dans un répertoire temporaire.
-- [ ] Générer un projet base de données dans un répertoire temporaire.
+- [x] Générer un projet base de données dans un répertoire temporaire.
 - [ ] Générer un projet authentifié dans un répertoire temporaire.
 - [x] Générer un projet API dans un répertoire temporaire.
 - [x] Générer un projet avec l’interface optionnelle dans un répertoire temporaire.
