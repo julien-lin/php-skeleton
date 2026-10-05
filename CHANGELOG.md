@@ -56,6 +56,7 @@ et ce projet adhère à [Semantic Versioning](https://semver.org/lang/fr/).
 - Le bootstrap public partage maintenant un template versionné entre les profils, avec des blocs conditionnels injectés.
 - La génération de `composer.json` est séparée de l’exécution de Composer et testable en mémoire.
 - La génération locale de l’environnement est maintenant séparée de la génération des fichiers applicatifs.
+- La lecture des templates est maintenant déléguée à un `TemplateRepository` injecté dans les générateurs local, Docker et bootstrap.
 - Correction de la réponse `/account` pour les visiteurs non authentifiés.
 
 ## [1.5.13] - 2025-01-XX

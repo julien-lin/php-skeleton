@@ -6,6 +6,7 @@ namespace Julien;
 
 use Julien\Installer\InstallOptions;
 use Julien\Installer\InstallPaths;
+use Julien\Installer\TemplateRepository;
 
 class Installer
 {
@@ -742,9 +743,11 @@ class Installer
         bool $installAuth,
         bool $installApi = false,
         bool $installVision = false,
-        bool $installSecure = false
+        bool $installSecure = false,
+        ?TemplateRepository $templates = null
     ): void
     {
+        $templates ??= new TemplateRepository(dirname(__DIR__) . '/templates/installer');
         $wwwDir = $baseDir . '/www';
         $publicDir = $wwwDir . '/public';
         $viewsDir = $wwwDir . '/views';
@@ -769,9 +772,9 @@ class Installer
         
         self::moveExistingFiles($baseDir, $wwwDir);
         self::createHtaccess($publicDir);
-        self::createHeaderTemplate($templatesDir, $installVision);
-        self::createFooterTemplate($templatesDir);
-        self::createHomeView($homeDir, $installVision);
+        self::createHeaderTemplate($templatesDir, $installVision, $templates);
+        self::createFooterTemplate($templatesDir, $templates);
+        self::createHomeView($homeDir, $installVision, $templates);
         self::createWwwDirectories($wwwDir);
         self::createConfigDatabase($wwwDir, $installDoctrine);
         if ($installAuth) {
@@ -781,7 +784,7 @@ class Installer
             self::createApiFiles($wwwDir);
         }
         self::createBootstrapServices($wwwDir, $installDoctrine || $installAuth || $installApi);
-        self::createPublicIndex($publicDir, $installDoctrine, $installAuth, $installApi, $installSecure);
+        self::createPublicIndex($publicDir, $installDoctrine, $installAuth, $installApi, $installSecure, $templates);
         self::createWwwGitignore($wwwDir);
         
         echo "✅ Structure www/ créée.\n";
@@ -1521,12 +1524,17 @@ GITIGNORE;
         file_put_contents($wwwDir . '/.gitignore', $content);
     }
     
-    private static function createHomeView(string $homeDir, bool $useVision = false): void
+    private static function createHomeView(
+        string $homeDir,
+        bool $useVision = false,
+        ?TemplateRepository $templates = null
+    ): void
     {
+        $templates ??= new TemplateRepository(dirname(__DIR__) . '/templates/installer');
         $template = $useVision
             ? 'profiles/vision/views/home/index.html.vis'
             : 'profiles/base/views/home/index.html.php';
-        self::writeGeneratedFile($homeDir . '/' . basename($template), self::readInstallerTemplate($template));
+        self::writeGeneratedFile($homeDir . '/' . basename($template), $templates->read($template));
     }
     
     private static function setupLocal(
@@ -1550,16 +1558,19 @@ GITIGNORE;
         bool $installAuth,
         bool $installApi = false,
         bool $installVision = false,
-        bool $installSecure = false
+        bool $installSecure = false,
+        ?TemplateRepository $templates = null
     ): void
     {
+        $templates ??= new TemplateRepository(dirname(__DIR__) . '/templates/installer');
         self::createLocalApplicationFiles(
             $baseDir,
             $installDoctrine,
             $installAuth,
             $installApi,
             $installVision,
-            $installSecure
+            $installSecure,
+            $templates
         );
         self::createLocalEnvironment($baseDir, $installDoctrine, $installApi);
 
@@ -1572,9 +1583,11 @@ GITIGNORE;
         bool $installAuth,
         bool $installApi = false,
         bool $installVision = false,
-        bool $installSecure = false
+        bool $installSecure = false,
+        ?TemplateRepository $templates = null
     ): void
     {
+        $templates ??= new TemplateRepository(dirname(__DIR__) . '/templates/installer');
         $publicDir = $baseDir . '/public';
         $viewsDir = $baseDir . '/views';
         $templatesDir = $viewsDir . '/_templates';
@@ -1587,9 +1600,9 @@ GITIGNORE;
         }
 
         self::createHtaccess($publicDir);
-        self::createHeaderTemplate($templatesDir, $installVision);
-        self::createFooterTemplate($templatesDir);
-        self::createHomeView($homeDir, $installVision);
+        self::createHeaderTemplate($templatesDir, $installVision, $templates);
+        self::createFooterTemplate($templatesDir, $templates);
+        self::createHomeView($homeDir, $installVision, $templates);
         self::createLocalDirectories($baseDir);
         self::createConfigDatabase($baseDir, $installDoctrine);
         if ($installAuth) {
@@ -1600,7 +1613,7 @@ GITIGNORE;
         }
         self::createBootstrapServices($baseDir, $installDoctrine || $installAuth || $installApi);
         self::createWwwGitignore($baseDir);
-        self::createPublicIndex($publicDir, $installDoctrine, $installAuth, $installApi, $installSecure);
+        self::createPublicIndex($publicDir, $installDoctrine, $installAuth, $installApi, $installSecure, $templates);
     }
 
     private static function createLocalEnvironment(string $baseDir, bool $hasDoctrine, bool $hasApi = false): void
@@ -1773,21 +1786,6 @@ SQL;
         if (file_put_contents($path, $content) === false) {
             throw new \RuntimeException("Impossible d'écrire le fichier généré {$path}.");
         }
-    }
-
-    private static function readInstallerTemplate(string $relativePath): string
-    {
-        if ($relativePath === '' || str_contains($relativePath, '..') || str_starts_with($relativePath, DIRECTORY_SEPARATOR)) {
-            throw new \InvalidArgumentException("Chemin de template invalide: {$relativePath}");
-        }
-
-        $templatePath = dirname(__DIR__) . '/templates/installer/' . $relativePath;
-        $content = file_get_contents($templatePath);
-        if ($content === false) {
-            throw new \RuntimeException("Template de l'installateur introuvable: {$relativePath}");
-        }
-
-        return $content;
     }
 
     /**
@@ -2572,16 +2570,18 @@ HTACCESS;
         bool $hasDoctrine,
         bool $hasAuth,
         bool $hasApi = false,
-        bool $hasSecure = false
+        bool $hasSecure = false,
+        ?TemplateRepository $templates = null
     ): void
     {
+        $templates ??= new TemplateRepository(dirname(__DIR__) . '/templates/installer');
         $wwwDir = dirname($publicDir);
         $controllerDir = $wwwDir . '/src/Controller';
         if (!is_dir($controllerDir)) {
             mkdir($controllerDir, 0755, true);
         }
         
-        $indexContent = self::generateIndexContent($hasDoctrine, $hasAuth, $hasApi, $hasSecure);
+        $indexContent = self::generateIndexContent($hasDoctrine, $hasAuth, $hasApi, $hasSecure, $templates);
         
         $controllerContent = <<<'PHP'
 <?php
@@ -2931,10 +2931,12 @@ PHP;
         bool $hasDoctrine,
         bool $hasAuth,
         bool $hasApi = false,
-        bool $hasSecure = false
+        bool $hasSecure = false,
+        ?TemplateRepository $templates = null
     ): string
     {
-        $template = self::readInstallerTemplate('environments/common/public/index.php');
+        $templates ??= new TemplateRepository(dirname(__DIR__) . '/templates/installer');
+        $template = $templates->read('environments/common/public/index.php');
 
         return strtr($template, [
             '{{bootstrap_imports}}' => self::generateBootstrapImports($hasDoctrine, $hasAuth, $hasApi, $hasSecure),
@@ -3092,23 +3094,32 @@ PHP;
 
 
     
-    private static function createHeaderTemplate(string $templatesDir, bool $useVision = false): void
+    private static function createHeaderTemplate(
+        string $templatesDir,
+        bool $useVision = false,
+        ?TemplateRepository $templates = null
+    ): void
     {
+        $templates ??= new TemplateRepository(dirname(__DIR__) . '/templates/installer');
         $template = $useVision
             ? 'profiles/vision/views/_templates/_header.html.vis'
             : 'environments/common/views/_templates/_header.html.php';
 
         self::writeGeneratedFile(
             $templatesDir . '/_header.html.php',
-            self::readInstallerTemplate($template)
+            $templates->read($template)
         );
     }
     
-    private static function createFooterTemplate(string $templatesDir): void
+    private static function createFooterTemplate(
+        string $templatesDir,
+        ?TemplateRepository $templates = null
+    ): void
     {
+        $templates ??= new TemplateRepository(dirname(__DIR__) . '/templates/installer');
         self::writeGeneratedFile(
             $templatesDir . '/_footer.html.php',
-            self::readInstallerTemplate('environments/common/views/_templates/_footer.html.php')
+            $templates->read('environments/common/views/_templates/_footer.html.php')
         );
     }
     
