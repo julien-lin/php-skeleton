@@ -47,6 +47,45 @@ final class InstallerGenerationTest extends TestCase
         self::assertMatchesRegularExpression('/^APP_SECRET=[a-f0-9]{64}$/m', (string) file_get_contents($this->projectDir . '/.env'));
     }
 
+    public function testBaseProfileInstallsAndServesHealthRoute(): void
+    {
+        $reflection = new ReflectionClass(Installer::class);
+        $this->invokeSilently($reflection, 'createLocalStructure', $this->projectDir, false, false);
+        $this->invoke($reflection, 'copyComposerJson', $this->projectDir, $this->projectDir, false, false);
+        $this->runComposer($this->projectDir, 'install', '--no-dev', '--no-interaction', '--prefer-dist');
+        $this->runComposer($this->projectDir, 'validate', '--no-check-publish', '--no-interaction');
+        file_put_contents(
+            $this->projectDir . '/.env',
+            str_replace('APP_DEBUG=1', 'APP_DEBUG=0', (string) file_get_contents($this->projectDir . '/.env'))
+        );
+
+        $pipes = [];
+        $process = proc_open(
+            [PHP_BINARY, $this->projectDir . '/public/index.php'],
+            [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+            $pipes,
+            $this->projectDir,
+            array_merge($_ENV, [
+                'REQUEST_METHOD' => 'GET',
+                'REQUEST_URI' => '/health',
+            ])
+        );
+
+        self::assertIsResource($process);
+        $output = stream_get_contents($pipes[1]);
+        $errors = stream_get_contents($pipes[2]);
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+        $exitCode = proc_close($process);
+
+        self::assertSame(0, $exitCode, $errors);
+        self::assertJson($output, $errors . "\nSortie HTTP:\n" . $output);
+        self::assertSame([
+            'status' => 'ok',
+            'framework' => 'php-skeleton',
+        ], json_decode($output, true, 512, JSON_THROW_ON_ERROR));
+    }
+
     public function testSecureProfileAddsOnlyCoreSecurityMiddleware(): void
     {
         $reflection = new ReflectionClass(Installer::class);
