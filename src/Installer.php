@@ -6,6 +6,7 @@ namespace Julien;
 
 use Julien\Installer\InstallOptions;
 use Julien\Installer\InstallPaths;
+use Julien\Installer\ComposerRunner;
 use Julien\Installer\TemplateRepository;
 
 class Installer
@@ -19,6 +20,7 @@ class Installer
     {
         self::displayWelcome();
         self::assertRequiredBinaries();
+        $composer = self::createComposerRunner();
         
         $options = InstallOptions::fromChoices(
             self::askQuestion('Voulez-vous utiliser Docker ? (y/N)', false),
@@ -52,10 +54,10 @@ class Installer
 
             // Le composer.json généré contient déjà le profil choisi : une seule
             // résolution évite les lockfiles intermédiaires et les incohérences.
-            self::installDependencies($wwwDir);
+            self::installDependencies($wwwDir, $composer);
 
             // Régénérer l'autoloader après la création des fichiers
-            self::regenerateAutoloader($wwwDir);
+            self::regenerateAutoloader($wwwDir, $composer);
             self::publishInstallationStaging($paths);
         } catch (\Throwable $exception) {
             self::removeDirectory($paths->stagingRoot);
@@ -106,13 +108,14 @@ class Installer
         return strtolower($answer) === 'y' || strtolower($answer) === 'yes';
     }
     
-    private static function installPackage(string $package, string $baseDir): void
+    private static function installPackage(string $package, string $baseDir, ?ComposerRunner $composer = null): void
     {
         echo "\n📦 Installation de {$package}...\n";
 
         self::assertPackageName($package);
 
-        [$output, $returnCode] = self::runComposer($baseDir, ['require', $package, '--no-interaction', '--prefer-dist']);
+        $composer ??= self::createComposerRunner();
+        [$output, $returnCode] = $composer->run($baseDir, ['require', $package, '--no-interaction', '--prefer-dist']);
 
         if ($returnCode === 0) {
             echo "✅ {$package} installé avec succès.\n";
@@ -123,7 +126,7 @@ class Installer
         }
     }
     
-    private static function installPackageInDocker(string $package, string $wwwDir): void
+    private static function installPackageInDocker(string $package, string $wwwDir, ?ComposerRunner $composer = null): void
     {
         echo "\n📦 Installation de {$package} dans www/...\n";
 
@@ -133,7 +136,8 @@ class Installer
 
         self::assertPackageName($package);
 
-        [$output, $returnCode] = self::runComposer($wwwDir, ['require', $package, '--no-interaction', '--prefer-dist']);
+        $composer ??= self::createComposerRunner();
+        [$output, $returnCode] = $composer->run($wwwDir, ['require', $package, '--no-interaction', '--prefer-dist']);
 
         if ($returnCode === 0) {
             echo "✅ {$package} installé avec succès dans www/.\n";
@@ -144,11 +148,12 @@ class Installer
         }
     }
     
-    private static function regenerateAutoloader(string $targetDir): void
+    private static function regenerateAutoloader(string $targetDir, ?ComposerRunner $composer = null): void
     {
         echo "\n🔄 Régénération de l'autoloader...\n";
 
-        [$output, $returnCode] = self::runComposer($targetDir, ['dump-autoload', '--no-interaction']);
+        $composer ??= self::createComposerRunner();
+        [$output, $returnCode] = $composer->run($targetDir, ['dump-autoload', '--no-interaction']);
 
         if ($returnCode === 0) {
             echo "✅ Autoloader régénéré avec succès.\n";
@@ -159,11 +164,12 @@ class Installer
         }
     }
 
-    private static function installDependencies(string $targetDir): void
+    private static function installDependencies(string $targetDir, ?ComposerRunner $composer = null): void
     {
         echo "\n📦 Installation des dépendances du profil...\n";
 
-        [$output, $returnCode] = self::runComposer(
+        $composer ??= self::createComposerRunner();
+        [$output, $returnCode] = $composer->run(
             $targetDir,
             ['update', '--no-interaction', '--prefer-dist', '--no-dev']
         );
@@ -288,12 +294,8 @@ class Installer
      *
      * @return array{0: array<int, string>, 1: int} Sortie et code retour
      */
-    private static function runComposer(string $workingDirectory, array $arguments): array
+    private static function createComposerRunner(): ComposerRunner
     {
-        if (!is_dir($workingDirectory)) {
-            throw new \RuntimeException("Répertoire de travail introuvable: {$workingDirectory}");
-        }
-
         $composerPath = self::findComposer();
         if ($composerPath === null) {
             throw new \RuntimeException(
@@ -302,42 +304,19 @@ class Installer
             );
         }
 
-        $command = array_merge([$composerPath], array_values($arguments));
-        self::verbose('Commande Composer: ' . self::redactSensitiveText(implode(' ', array_map(
-            static fn(mixed $argument): string => escapeshellarg((string) $argument),
-            $command
-        ))));
-        $descriptorSpec = [
-            0 => ['pipe', 'r'],
-            1 => ['pipe', 'w'],
-            2 => ['pipe', 'w'],
-        ];
-
-        $process = proc_open($command, $descriptorSpec, $pipes, $workingDirectory, null, ['bypass_shell' => true]);
-        if (!is_resource($process)) {
-            throw new \RuntimeException("Impossible de démarrer Composer.");
-        }
-
-        fclose($pipes[0]);
-        $stdout = stream_get_contents($pipes[1]);
-        $stderr = stream_get_contents($pipes[2]);
-        fclose($pipes[1]);
-        fclose($pipes[2]);
-
-        $returnCode = proc_close($process);
-        $output = array_values(array_filter(
-            preg_split('/\R/', trim((string)$stdout . "\n" . (string)$stderr)) ?: [],
-            static fn(string $line): bool => $line !== ''
-        ));
-        $output = array_map(self::redactSensitiveText(...), $output);
-
-        if (self::isVerbose() && $output !== []) {
-            foreach ($output as $line) {
-                self::verbose('  ' . $line);
+        return new ComposerRunner(
+            $composerPath,
+            self::isVerbose(),
+            static fn(string $text): string => self::redactSensitiveText($text),
+            static function (string $message): void {
+                self::verbose($message);
             }
-        }
+        );
+    }
 
-        return [$output, $returnCode];
+    private static function runComposer(string $workingDirectory, array $arguments): array
+    {
+        return self::createComposerRunner()->run($workingDirectory, $arguments);
     }
 
     private static function isVerbose(): bool

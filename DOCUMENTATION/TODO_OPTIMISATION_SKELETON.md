@@ -212,7 +212,7 @@ Cette checklist couvre l’optimisation de `php-skeleton`, de son installateur, 
 - [x] Isoler la résolution des options de profil de la génération des fichiers.
 - [x] Isoler la génération de `composer.json` de l’exécution de Composer.
 - [x] Isoler la génération de l’environnement de la génération du code applicatif.
-- [ ] Réduire les méthodes statiques et injecter les services nécessaires.
+- [x] Réduire les méthodes statiques et injecter les services nécessaires (templates et Composer injectés, façade legacy conservée).
 - [x] Définir des objets de configuration typés pour les choix de l’utilisateur.
 - [x] Centraliser les chemins générés afin d’éviter les divergences entre étapes.
 
