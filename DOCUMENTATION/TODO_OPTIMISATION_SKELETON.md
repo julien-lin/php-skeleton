@@ -292,11 +292,11 @@ Cette checklist couvre l’optimisation de `php-skeleton`, de son installateur, 
 ### P1 — Profil sécurisé
 
 - [x] Ajouter les en-têtes de sécurité avec le contrat middleware commun.
-- [ ] Activer CSRF uniquement sur les formulaires et routes qui en ont besoin.
+- [x] Activer CSRF uniquement sur les formulaires et routes qui en ont besoin.
 - [x] Ajouter la limitation de débit avec une stratégie de stockage documentée.
 - [x] Définir les valeurs de production et de développement séparément.
 - [x] Ajouter des tests de présence et de valeur des en-têtes de sécurité.
-- [ ] Ajouter des tests de rejet CSRF et de limitation de débit.
+- [x] Ajouter des tests de rejet CSRF et de limitation de débit.
 
 ### P0 — Profil base de données
 
