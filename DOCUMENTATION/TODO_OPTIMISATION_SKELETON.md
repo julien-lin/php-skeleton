@@ -121,7 +121,7 @@ Cette checklist couvre l’optimisation de `php-skeleton`, de son installateur, 
 ### P1 — Profils de dépendances
 
 - [x] Définir un profil de base ne contenant que le cœur et le routeur.
-- [ ] Définir un profil sécurisé ajoutant uniquement les middlewares et composants nécessaires.
+- [x] Définir un profil sécurisé ajoutant uniquement les middlewares et composants nécessaires.
 - [x] Définir un profil base de données avec `doctrine-php` et `ext-pdo`.
 - [x] Définir un profil authentification qui implique explicitement le profil base de données.
 - [x] Définir un profil API avec `php-api` uniquement lorsque l’utilisateur le demande.
@@ -157,18 +157,18 @@ Cette checklist couvre l’optimisation de `php-skeleton`, de son installateur, 
 
 ### P0 — Middlewares
 
-- [ ] Cartographier les interfaces et contrats de middleware de `core-php` et `php-router`.
-- [ ] Aligner l’interface middleware Core sur le contrat attendu par le routeur.
-- [ ] Vérifier que `CsrfMiddleware` peut être enregistré directement dans le pipeline du routeur.
-- [ ] Définir un contrat commun pour les middlewares de sécurité, de limitation de débit et de compression.
-- [ ] Éviter de maintenir un adaptateur spécifique au skeleton pour masquer une incompatibilité entre bibliothèques.
-- [ ] Ajouter des tests d’enregistrement et d’exécution du pipeline middleware.
+- [x] Cartographier les interfaces et contrats de middleware de `core-php` et `php-router`.
+- [x] Aligner l’interface middleware Core sur le contrat attendu par le routeur.
+- [x] Vérifier que `CsrfMiddleware` peut être enregistré directement dans le pipeline du routeur.
+- [x] Définir un contrat commun pour les middlewares de sécurité, de limitation de débit et de compression.
+- [x] Éviter de maintenir un adaptateur spécifique au skeleton pour masquer une incompatibilité entre bibliothèques.
+- [x] Ajouter des tests d’enregistrement et d’exécution du pipeline middleware.
 
 ### P0 — Réponse et post-traitement
 
-- [ ] Définir comment les middlewares qui modifient la réponse après l’exécution du contrôleur sont exécutés.
-- [ ] Intégrer proprement le traitement des en-têtes de sécurité.
-- [ ] Intégrer proprement la compression uniquement si la réponse complète est disponible au bon moment.
+- [x] Définir comment les middlewares qui modifient la réponse après l’exécution du contrôleur sont exécutés.
+- [x] Intégrer proprement le traitement des en-têtes de sécurité.
+- [x] Intégrer proprement la compression uniquement si la réponse complète est disponible au bon moment.
 - [ ] Vérifier que la compression ne s’applique pas aux réponses déjà compressées, aux flux ou aux réponses incompatibles.
 - [ ] Ajouter des tests sur les codes HTTP, les en-têtes et le corps de réponse.
 
@@ -291,11 +291,11 @@ Cette checklist couvre l’optimisation de `php-skeleton`, de son installateur, 
 
 ### P1 — Profil sécurisé
 
-- [ ] Ajouter les en-têtes de sécurité avec le contrat middleware commun.
+- [x] Ajouter les en-têtes de sécurité avec le contrat middleware commun.
 - [ ] Activer CSRF uniquement sur les formulaires et routes qui en ont besoin.
-- [ ] Ajouter la limitation de débit avec une stratégie de stockage documentée.
-- [ ] Définir les valeurs de production et de développement séparément.
-- [ ] Ajouter des tests de présence et de valeur des en-têtes de sécurité.
+- [x] Ajouter la limitation de débit avec une stratégie de stockage documentée.
+- [x] Définir les valeurs de production et de développement séparément.
+- [x] Ajouter des tests de présence et de valeur des en-têtes de sécurité.
 - [ ] Ajouter des tests de rejet CSRF et de limitation de débit.
 
 ### P0 — Profil base de données

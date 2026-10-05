@@ -65,10 +65,12 @@ Deux fichiers `.env` seront automatiquement générés :
 - **Installer Auth ?** - Ajoute le système d'authentification
 - **Installer l'API ?** - Ajoute `php-api`, Doctrine, une entité `Product` et les routes CRUD `/api/products`
 - **Installer Vision ?** - Ajoute `php-vision` et génère des templates `.html.vis` à la place des templates PHP
+- **Activer le profil sécurisé ?** - Enregistre la validation des requêtes, la limitation de débit, les en-têtes de sécurité et la compression gzip
 
 Répondez simplement `y` pour oui ou `N` pour non (par défaut).
 
 Le profil API active automatiquement le profil base de données. Le profil Vision est indépendant et n'est jamais installé dans le profil de base.
+Le profil sécurisé utilise uniquement les middlewares déjà fournis par Core/Router. Les compteurs de limitation sont stockés dans `storage/cache/rate-limit`, HSTS est activé uniquement en production et CSRF reste actif pour les formulaires web ; les routes API restent stateless.
 
 **L'autoloader est automatiquement régénéré** après l'installation, votre application est donc prête à fonctionner immédiatement !
 
@@ -358,6 +360,7 @@ MYSQL_PASSWORD=app_password
 ## 🔒 Fonctionnalités de sécurité
 
 - **Protection CSRF** - Génération et validation automatiques des tokens CSRF
+- **Profil sécurisé** - Validation des requêtes, limitation de débit, en-têtes HTTP et compression gzip
 - **Sécurité des sessions** - Cookies HttpOnly, SameSite et sécurisés
 - **Validation de l'environnement** - Validation automatique des variables d'environnement requises
 - **Configuration sécurisée de la base de données** - Aucun identifiant en dur, validation stricte

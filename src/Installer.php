@@ -21,6 +21,7 @@ class Installer
         $installAuth = self::askQuestion('Voulez-vous installer Auth ? (y/N)', false);
         $installApi = self::askQuestion('Voulez-vous installer le profil API ? (y/N)', false);
         $installVision = self::askQuestion('Voulez-vous installer le profil Vision ? (y/N)', false);
+        $installSecure = self::askQuestion('Voulez-vous activer le profil sécurisé ? (y/N)', false);
 
         // Auth repose sur Doctrine : empêcher la génération d'un bootstrap incohérent.
         if ($installAuth || $installApi) {
@@ -36,12 +37,12 @@ class Installer
             // Configurer l'environnement AVANT de créer docker-compose.yml
             // pour avoir les noms de conteneurs
             self::configureEnv($installDoctrine);
-            self::setupDocker($installDoctrine, $installAuth, $installApi, $installVision);
+            self::setupDocker($installDoctrine, $installAuth, $installApi, $installVision, $installSecure);
         } else {
-            self::setupLocal($installDoctrine, $installAuth, $installApi, $installVision);
+            self::setupLocal($installDoctrine, $installAuth, $installApi, $installVision, $installSecure);
         }
         
-        self::copyComposerJson($baseDir, $wwwDir, $installDoctrine, $installAuth, $installApi, $installVision);
+        self::copyComposerJson($baseDir, $wwwDir, $installDoctrine, $installAuth, $installApi, $installVision, $installSecure);
 
         // Le composer.json généré contient déjà le profil choisi : une seule
         // résolution évite les lockfiles intermédiaires et les incohérences.
@@ -410,14 +411,15 @@ class Installer
         bool $installDoctrine,
         bool $installAuth,
         bool $installApi = false,
-        bool $installVision = false
+        bool $installVision = false,
+        bool $installSecure = false
     ): void
     {
         echo "\n🐳 Configuration Docker...\n";
         
         $baseDir = self::getProjectRoot();
         
-        self::createWwwStructure($baseDir, $installDoctrine, $installAuth, $installApi, $installVision);
+        self::createWwwStructure($baseDir, $installDoctrine, $installAuth, $installApi, $installVision, $installSecure);
         self::createDockerFiles($baseDir, $installDoctrine);
         
         echo "✅ Fichiers Docker créés.\n";
@@ -433,7 +435,8 @@ class Installer
         bool $installDoctrine,
         bool $installAuth,
         bool $installApi = false,
-        bool $installVision = false
+        bool $installVision = false,
+        bool $installSecure = false
     ): void
     {
         $wwwDir = $baseDir . '/www';
@@ -472,7 +475,7 @@ class Installer
             self::createApiFiles($wwwDir);
         }
         self::createBootstrapServices($wwwDir);
-        self::createPublicIndex($publicDir, $installDoctrine, $installAuth, $installApi);
+        self::createPublicIndex($publicDir, $installDoctrine, $installAuth, $installApi, $installSecure);
         self::createWwwGitignore($wwwDir);
         
         echo "✅ Structure www/ créée.\n";
@@ -1000,7 +1003,8 @@ PHP;
         bool $hasDoctrine,
         bool $hasAuth,
         bool $hasApi = false,
-        bool $hasVision = false
+        bool $hasVision = false,
+        bool $hasSecure = false
     ): void
     {
         if ($hasAuth || $hasApi) {
@@ -1172,12 +1176,13 @@ PHP;
         bool $installDoctrine,
         bool $installAuth,
         bool $installApi = false,
-        bool $installVision = false
+        bool $installVision = false,
+        bool $installSecure = false
     ): void
     {
         echo "\n💻 Configuration locale...\n";
         $baseDir = self::getProjectRoot();
-        self::createLocalStructure($baseDir, $installDoctrine, $installAuth, $installApi, $installVision);
+        self::createLocalStructure($baseDir, $installDoctrine, $installAuth, $installApi, $installVision, $installSecure);
         echo "✅ Configuration locale prête.\n";
     }
     
@@ -1186,7 +1191,8 @@ PHP;
         bool $installDoctrine,
         bool $installAuth,
         bool $installApi = false,
-        bool $installVision = false
+        bool $installVision = false,
+        bool $installSecure = false
     ): void
     {
         $publicDir = $baseDir . '/public';
@@ -1223,7 +1229,7 @@ PHP;
         self::createBootstrapServices($baseDir);
         self::createWwwGitignore($baseDir);
         
-        self::createPublicIndex($publicDir, $installDoctrine, $installAuth, $installApi);
+        self::createPublicIndex($publicDir, $installDoctrine, $installAuth, $installApi, $installSecure);
         
         echo "✅ Structure locale créée.\n";
     }
@@ -2053,7 +2059,8 @@ HTACCESS;
         string $publicDir,
         bool $hasDoctrine,
         bool $hasAuth,
-        bool $hasApi = false
+        bool $hasApi = false,
+        bool $hasSecure = false
     ): void
     {
         $wwwDir = dirname($publicDir);
@@ -2062,7 +2069,7 @@ HTACCESS;
             mkdir($controllerDir, 0755, true);
         }
         
-        $indexContent = self::generateIndexContent($hasDoctrine, $hasAuth, $hasApi);
+        $indexContent = self::generateIndexContent($hasDoctrine, $hasAuth, $hasApi, $hasSecure);
         
         $controllerContent = <<<'PHP'
 <?php
@@ -2391,7 +2398,8 @@ PHP;
     private static function generateIndexContent(
         bool $hasDoctrine,
         bool $hasAuth,
-        bool $hasApi = false
+        bool $hasApi = false,
+        bool $hasSecure = false
     ): string
     {
         $content = <<<'PHP'
@@ -2436,6 +2444,16 @@ PHP;
             $content .= "\nuse App\Controller\ProductController;";
         }
         
+        if ($hasSecure) {
+            $content .= <<<'PHP'
+
+use JulienLinard\Core\Middleware\CompressionMiddleware;
+use JulienLinard\Core\Middleware\RateLimitMiddleware;
+use JulienLinard\Core\Middleware\RequestValidationMiddleware;
+use JulienLinard\Core\Middleware\SecurityHeadersMiddleware;
+PHP;
+        }
+
         $content .= "\n\n";
         
         $content .= <<<'PHP'
@@ -2606,6 +2624,28 @@ $router = $app->getRouter();
 // CONCEPT : CSRF Protection (Cross-Site Request Forgery)
 // Protection contre les attaques où un site malveillant fait des requêtes en votre nom
 $router->addMiddleware(new CsrfMiddleware());
+PHP;
+
+        if ($hasSecure) {
+            $content .= <<<'PHP'
+
+// Profil sécurisé : validation, limitation de débit et headers HTTP.
+// L'ordre est volontaire : les requêtes sont validées et limitées avant
+// l'exécution des contrôleurs, tandis que les headers et la compression sont
+// appliqués au corps de réponse complet par le routeur.
+$router->addMiddleware(new RequestValidationMiddleware(10_485_760));
+$router->addMiddleware(new RateLimitMiddleware(100, 60, dirname(__DIR__) . '/storage/cache/rate-limit'));
+$router->addMiddleware(new SecurityHeadersMiddleware([
+    'hsts' => getenv('APP_ENV') === 'production' ? 'max-age=31536000; includeSubDomains' : null,
+    'permissionsPolicy' => 'geolocation=(), camera=(), microphone=()',
+]));
+$router->addMiddleware(new CompressionMiddleware([
+    'minSize' => 1024,
+]));
+PHP;
+        }
+
+        $content .= <<<'PHP'
 
 // ============================================
 // ÉTAPE 8 : CONFIGURATION DU SYSTÈME D'ÉVÉNEMENTS

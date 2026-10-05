@@ -47,6 +47,24 @@ final class InstallerGenerationTest extends TestCase
         self::assertMatchesRegularExpression('/^APP_SECRET=[a-f0-9]{64}$/m', (string) file_get_contents($this->projectDir . '/.env'));
     }
 
+    public function testSecureProfileAddsOnlyCoreSecurityMiddleware(): void
+    {
+        $reflection = new ReflectionClass(Installer::class);
+        $this->invokeSilently($reflection, 'createLocalStructure', $this->projectDir, false, false, false, false, true);
+        $this->invoke($reflection, 'copyComposerJson', $this->projectDir, $this->projectDir, false, false, false, false, true);
+
+        $composer = json_decode((string) file_get_contents($this->projectDir . '/composer.json'), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame(['php', 'julienlinard/core-php', 'julienlinard/php-router'], array_keys($composer['require']));
+
+        $index = (string) file_get_contents($this->projectDir . '/public/index.php');
+        self::assertStringContainsString('new RequestValidationMiddleware(10_485_760)', $index);
+        self::assertStringContainsString('new RateLimitMiddleware(100, 60', $index);
+        self::assertStringContainsString('new SecurityHeadersMiddleware([', $index);
+        self::assertStringContainsString('new CompressionMiddleware([', $index);
+        self::assertStringContainsString("'/storage/cache/rate-limit'", $index);
+        self::assertStringContainsString("'hsts' => getenv('APP_ENV') === 'production'", $index);
+    }
+
     public function testAuthProfileAlwaysIncludesDoctrine(): void
     {
         $reflection = new ReflectionClass(Installer::class);

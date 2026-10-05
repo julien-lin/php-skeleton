@@ -5,6 +5,14 @@ Tous les changements notables de ce projet seront documentés dans ce fichier.
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/),
 et ce projet adhère à [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [Unreleased]
+
+### Profils et sécurité
+
+- Ajout du profil sécurisé optionnel avec validation des requêtes, limitation de débit, en-têtes HTTP et compression gzip.
+- HSTS est activé uniquement en production et les compteurs de limitation sont stockés dans `storage/cache/rate-limit`.
+- Documentation et tests de génération du profil sécurisé ajoutés.
+
 ## [1.5.13] - 2025-01-XX
 
 ### Corrections
@@ -78,4 +86,3 @@ et ce projet adhère à [Semantic Versioning](https://semver.org/lang/fr/).
   - `regenerateAutoloader()` : Utilise maintenant `safeExec()`
   - `findComposer()` : Utilise maintenant `safeShellExec()`
   - `isExecutable()` : Utilise maintenant `safeShellExec()`
-

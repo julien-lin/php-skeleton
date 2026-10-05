@@ -65,10 +65,12 @@ Two `.env` files will be automatically generated:
 - **Install Auth?** - Adds authentication system
 - **Install API?** - Adds `php-api`, Doctrine, a `Product` entity and CRUD routes under `/api/products`
 - **Install Vision?** - Adds `php-vision` and generates `.html.vis` templates instead of PHP templates
+- **Enable secure profile?** - Registers request validation, rate limiting, security headers and gzip compression
 
 Simply answer `y` for yes or `N` for no (default).
 
 The API profile automatically enables the database profile. The Vision profile is independent and is never installed in the base profile.
+The secure profile uses only the existing Core/Router middleware stack. It stores rate-limit counters under `storage/cache/rate-limit`, enables HSTS only in production, and keeps CSRF enabled for web forms while API routes remain stateless.
 
 **The autoloader is automatically regenerated** after installation, so your application is ready to run immediately!
 
