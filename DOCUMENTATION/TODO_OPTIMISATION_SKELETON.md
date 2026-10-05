@@ -43,14 +43,14 @@ Cette checklist couvre l’optimisation de `php-skeleton`, de son installateur, 
 - [x] Le nettoyage Docker ne supprime plus la licence, la documentation, le lockfile ou le `composer.json` racine.
 - [x] Xdebug, NVM et Node ne sont plus installés par défaut dans l’image Docker générée.
 - [x] Le cache de vues est préparé via l’API existante de `core-php` et activé hors debug.
-- [x] Le smoke test Auth généré ne révèle pas d’erreur fonctionnelle ; les messages `ReflectionProperty::setAccessible()` restants proviennent de `doctrine-php` sous PHP 8.5 et doivent être corrigés en amont.
+- [x] Le smoke test Auth généré ne révèle pas d’erreur fonctionnelle ; les appels `ReflectionProperty::setAccessible()` de `doctrine-php` ont été supprimés pour PHP 8.5.
 
 ### Restant prioritaire
 
 - [x] Supprimer la configuration de rapport de couverture passive qui déclenchait un warning sans driver ; activer la couverture explicitement en CI avec PCOV/Xdebug.
 - [x] Valider le profil Doctrine avec MariaDB dans Docker.
 - [x] Valider le profil Auth avec flux HTTP de connexion réel derrière Apache.
-- [ ] Corriger les dépréciations PHP 8.5 dans `doctrine-php`/`core-php` ou attendre des versions amont corrigées, sans les masquer dans le skeleton.
+- [x] Corriger les dépréciations PHP 8.5 dans `doctrine-php`/`core-php` ou attendre des versions amont corrigées, sans les masquer dans le skeleton.
 - [ ] Finaliser la séparation Docker développement/production.
 - [ ] Ajouter les tests de génération API et interface optionnelle.
 - [ ] Découper progressivement `Installer` sans casser la compatibilité Composer.
