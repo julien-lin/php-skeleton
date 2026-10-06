@@ -5,6 +5,13 @@ Tous les changements notables de ce projet seront documentés dans ce fichier.
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/),
 et ce projet adhère à [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [1.6.4] - 2026-10-06
+
+### Corrections
+
+- Correction des scripts MariaDB `backup.sh` et `restore.sh` pour éviter l'option `pipefail`, incompatible avec `/bin/sh`.
+- L'initialisation du container MariaDB ne génère plus cette erreur au premier démarrage.
+
 ## [1.6.3] - 2026-10-06
 
 ### Corrections

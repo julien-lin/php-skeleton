@@ -1,4 +1,4 @@
-# PHP Skeleton v1.6.3
+# PHP Skeleton v1.6.4
 
 [🇫🇷 Read in French](README.fr.md) | [🇬🇧 Read in English](README.md)
 
@@ -385,8 +385,9 @@ MYSQL_PASSWORD=app_password
 - Composer
 - Docker (optional, for Docker setup)
 
-## 🆕 What's New in v1.6.3
+## 🆕 What's New in v1.6.4
 
+- ✅ MariaDB initialization scripts now use POSIX-compatible shell options
 - ✅ Docker images install `libonig-dev` so the `mbstring` extension compiles successfully
 - ✅ Fixed Docker staging publication after installation
 - ✅ Secure profile with request validation, rate limiting, security headers and gzip compression
