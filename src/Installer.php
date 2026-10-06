@@ -2398,6 +2398,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   unzip \
   wget \
   curl \
+  libonig-dev \
   && rm -rf /var/lib/apt/lists/*
 
 RUN docker-php-ext-install -j$(nproc) mbstring opcache__DATABASE_EXTENSIONS__
@@ -2443,6 +2444,7 @@ FROM php:8.3-apache
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
   wget \
+  libonig-dev \
   && rm -rf /var/lib/apt/lists/*
 
 RUN docker-php-ext-install -j$(nproc) mbstring opcache__DATABASE_EXTENSIONS__

@@ -5,6 +5,13 @@ Tous les changements notables de ce projet seront documentés dans ce fichier.
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/),
 et ce projet adhère à [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [1.6.3] - 2026-10-06
+
+### Corrections
+
+- Ajout de `libonig-dev` dans les images Docker pour permettre la compilation de `mbstring`.
+- Ajout de tests vérifiant la présence de cette dépendance dans les Dockerfiles générés.
+
 ## [1.6.2] - 2026-10-06
 
 ### Corrections
