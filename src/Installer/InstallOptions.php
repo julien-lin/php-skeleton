@@ -12,6 +12,7 @@ final class InstallOptions
     public readonly bool $installApi;
     public readonly bool $installVision;
     public readonly bool $installSecure;
+    public readonly bool $useTailwind;
 
     public function __construct(
         bool $useDocker,
@@ -19,7 +20,8 @@ final class InstallOptions
         bool $installAuth,
         bool $installApi,
         bool $installVision,
-        bool $installSecure
+        bool $installSecure,
+        bool $useTailwind = false
     ) {
         if (($installAuth || $installApi) && !$installDoctrine) {
             $installDoctrine = true;
@@ -31,6 +33,7 @@ final class InstallOptions
         $this->installApi = $installApi;
         $this->installVision = $installVision;
         $this->installSecure = $installSecure;
+        $this->useTailwind = $useTailwind;
     }
 
     /**
@@ -43,7 +46,8 @@ final class InstallOptions
         bool $installAuth,
         bool $installApi,
         bool $installVision,
-        bool $installSecure
+        bool $installSecure,
+        bool $useTailwind = false
     ): self {
         return new self(
             $useDocker,
@@ -51,7 +55,8 @@ final class InstallOptions
             $installAuth,
             $installApi,
             $installVision,
-            $installSecure
+            $installSecure,
+            $useTailwind
         );
     }
 }

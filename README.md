@@ -66,6 +66,7 @@ Two `.env` files will be automatically generated:
 - **Install API?** - Adds `php-api`, Doctrine, a `Product` entity and CRUD routes under `/api/products`
 - **Install Vision?** - Adds `php-vision` and generates `.html.vis` templates instead of PHP templates
 - **Enable secure profile?** - Registers request validation, rate limiting, security headers and gzip compression
+- **Use Tailwind CSS 4?** - Installs Tailwind through PostCSS and builds `public/assets/app.css`; otherwise a regular CSS file is generated
 
 Simply answer `y` for yes or `N` for no (default).
 
@@ -74,6 +75,24 @@ The secure profile uses only the existing Core/Router middleware stack. It store
 The API profile exposes no cross-origin access by default. Set `API_CORS_ORIGINS` in `.env` to a comma-separated allowlist when browser clients need CORS; API routes are excluded from CSRF checks.
 
 **The autoloader is automatically regenerated** after installation, so your application is ready to run immediately!
+
+### 🎨 CSS choice
+
+If Tailwind CSS 4 is selected, the installer checks for Node.js and npm,
+installs `tailwindcss`, `@tailwindcss/postcss`, `postcss` and `postcss-cli`,
+then compiles the classes used by the generated views. The generated project
+contains `package.json`, `package-lock.json`, `postcss.config.mjs`,
+`assets/styles/app.css` and `public/assets/app.css`.
+
+Available commands in the generated project:
+
+```bash
+npm run watch  # development
+npm run build  # production
+```
+
+If Tailwind is declined, the project uses `public/assets/app.css` as a regular
+CSS file and does not require Node.js.
 
 ## ⚡ Quick Start
 

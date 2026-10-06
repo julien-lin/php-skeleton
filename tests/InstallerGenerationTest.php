@@ -59,6 +59,32 @@ final class InstallerGenerationTest extends TestCase
         self::assertMatchesRegularExpression('/^APP_SECRET=[a-f0-9]{64}$/m', (string) file_get_contents($this->projectDir . '/.env'));
     }
 
+    public function testClassicCssAssetsAreGeneratedWithoutNodeConfiguration(): void
+    {
+        $reflection = new ReflectionClass(Installer::class);
+        $this->invokeSilently($reflection, 'createFrontendAssets', $this->projectDir, false);
+
+        self::assertFileExists($this->projectDir . '/public/assets/app.css');
+        self::assertFileDoesNotExist($this->projectDir . '/package.json');
+        self::assertStringContainsString('.page-card', (string) file_get_contents($this->projectDir . '/public/assets/app.css'));
+    }
+
+    public function testTailwindPackageConfigurationUsesPostCssCli(): void
+    {
+        $reflection = new ReflectionClass(Installer::class);
+        $content = $this->invoke($reflection, 'generateFrontendPackageJson', 'My Demo App');
+        $package = json_decode($content, true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertTrue($package['private']);
+        self::assertSame(
+            'postcss assets/styles/app.css -o public/assets/app.css --env production',
+            $package['scripts']['build']
+        );
+        self::assertSame('^4.3.0', $package['devDependencies']['tailwindcss']);
+        self::assertSame('^4.3.0', $package['devDependencies']['@tailwindcss/postcss']);
+        self::assertArrayNotHasKey('postcss-loader', $package['devDependencies']);
+    }
+
     public function testComposerJsonGenerationIsPureAndProfileAware(): void
     {
         $reflection = new ReflectionClass(Installer::class);
@@ -776,7 +802,7 @@ SQL);
         $this->invokeSilently($reflection, 'createLocalStructure', $this->projectDir, false, false);
 
         self::assertSame(
-            (string) file_get_contents(dirname(__DIR__) . '/templates/installer/profiles/base/views/home/index.html.php'),
+            (string) file_get_contents(dirname(__DIR__) . '/templates/installer/profiles/base/views/home/index.classic.html.php'),
             (string) file_get_contents($this->projectDir . '/views/home/index.html.php')
         );
     }
@@ -787,7 +813,7 @@ SQL);
         $this->invokeSilently($reflection, 'createLocalStructure', $this->projectDir, false, false);
 
         self::assertSame(
-            (string) file_get_contents(dirname(__DIR__) . '/templates/installer/environments/common/views/_templates/_header.html.php'),
+            (string) file_get_contents(dirname(__DIR__) . '/templates/installer/environments/common/views/_templates/_header.classic.html.php'),
             (string) file_get_contents($this->projectDir . '/views/_templates/_header.html.php')
         );
         self::assertSame(
@@ -816,7 +842,7 @@ SQL);
         $this->invokeSilently($reflection, 'createLocalStructure', $this->projectDir, false, false, false, true);
 
         self::assertSame(
-            (string) file_get_contents(dirname(__DIR__) . '/templates/installer/profiles/vision/views/_templates/_header.html.vis'),
+            (string) file_get_contents(dirname(__DIR__) . '/templates/installer/profiles/vision/views/_templates/_header.classic.html.vis'),
             (string) file_get_contents($this->projectDir . '/views/_templates/_header.html.php')
         );
     }

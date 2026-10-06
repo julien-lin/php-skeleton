@@ -7,6 +7,7 @@ namespace Julien;
 use Julien\Installer\InstallOptions;
 use Julien\Installer\InstallPaths;
 use Julien\Installer\ComposerRunner;
+use Julien\Installer\NpmRunner;
 use Julien\Installer\TemplateRepository;
 
 class Installer
@@ -28,8 +29,13 @@ class Installer
             self::askQuestion('Voulez-vous installer Auth ? (y/N)', false),
             self::askQuestion('Voulez-vous installer le profil API ? (y/N)', false),
             self::askQuestion('Voulez-vous installer le profil Vision ? (y/N)', false),
-            self::askQuestion('Voulez-vous activer le profil sécurisé ? (y/N)', false)
+            self::askQuestion('Voulez-vous activer le profil sécurisé ? (y/N)', false),
+            self::askQuestion('Voulez-vous utiliser Tailwind CSS 4 ? (y/N)', false)
         );
+
+        if ($options->useTailwind) {
+            self::assertNodeRequiredBinaries();
+        }
         
         $baseDir = self::getProjectRoot();
 
@@ -43,9 +49,9 @@ class Installer
             if ($options->useDocker) {
                 // Configurer l'environnement dans le staging avant de créer Docker.
                 self::configureEnv($options->installDoctrine, $options->installApi, $stagingDir);
-                self::setupDocker($options->installDoctrine, $options->installAuth, $options->installApi, $options->installVision, $options->installSecure, $stagingDir);
+                self::setupDocker($options->installDoctrine, $options->installAuth, $options->installApi, $options->installVision, $options->installSecure, $stagingDir, $options->useTailwind);
             } else {
-                self::setupLocal($options->installDoctrine, $options->installAuth, $options->installApi, $options->installVision, $options->installSecure, $stagingDir);
+                self::setupLocal($options->installDoctrine, $options->installAuth, $options->installApi, $options->installVision, $options->installSecure, $stagingDir, $options->useTailwind);
             }
 
             self::copyComposerJson($baseDir, $wwwDir, $options->installDoctrine, $options->installAuth, $options->installApi, $options->installVision, $options->installSecure);
@@ -71,7 +77,8 @@ class Installer
             $options->installAuth,
             $options->installApi,
             $options->installVision,
-            $options->installSecure
+            $options->installSecure,
+            $options->useTailwind
         );
     }
     
@@ -239,7 +246,12 @@ class Installer
         ];
 
         foreach ($files as $file) {
-            if (!$file->isFile() || str_contains($file->getPathname(), DIRECTORY_SEPARATOR . 'vendor' . DIRECTORY_SEPARATOR)) {
+            $pathParts = explode(DIRECTORY_SEPARATOR, $file->getPathname());
+            if (
+                !$file->isFile()
+                || in_array('vendor', $pathParts, true)
+                || in_array('node_modules', $pathParts, true)
+            ) {
                 continue;
             }
 
@@ -398,12 +410,60 @@ class Installer
         return null;
     }
 
+    private static function findNpm(): ?string
+    {
+        $configuredPath = getenv('NPM_BINARY');
+        if ($configuredPath !== false && $configuredPath !== '' && is_executable($configuredPath)) {
+            return $configuredPath;
+        }
+
+        try {
+            $whichNpm = self::safeShellExec('which npm');
+            if (!empty($whichNpm) && is_executable($whichNpm)) {
+                return $whichNpm;
+            }
+        } catch (\RuntimeException $e) {
+            // Le message détaillé est fourni par assertNodeRequiredBinaries().
+        }
+
+        return null;
+    }
+
+    private static function createNpmRunner(): NpmRunner
+    {
+        $npmPath = self::findNpm();
+        if ($npmPath === null) {
+            throw new \RuntimeException(
+                'npm est requis pour installer Tailwind CSS 4. Installez Node.js puis relancez l’installation.'
+            );
+        }
+
+        return new NpmRunner(
+            $npmPath,
+            self::isVerbose(),
+            static fn(string $text): string => self::redactSensitiveText($text),
+            static function (string $message): void {
+                self::verbose($message);
+            }
+        );
+    }
+
     private static function assertRequiredBinaries(): void
     {
         if (self::findComposer() === null) {
             throw new \RuntimeException(
                 'Composer est requis avant de commencer la génération. ' .
                 'Installez Composer puis relancez l’installation.'
+            );
+        }
+    }
+
+    private static function assertNodeRequiredBinaries(): void
+    {
+        if (self::findNpm() === null) {
+            throw new \RuntimeException(
+                'Node.js et npm sont requis pour installer Tailwind CSS 4. ' .
+                'Installez Node.js depuis https://nodejs.org puis relancez l’installation.'
             );
         }
     }
@@ -561,14 +621,15 @@ class Installer
         bool $installApi = false,
         bool $installVision = false,
         bool $installSecure = false,
-        ?string $baseDir = null
+        ?string $baseDir = null,
+        bool $useTailwind = false
     ): void
     {
         echo "\n🐳 Configuration Docker...\n";
         
         $baseDir ??= self::getProjectRoot();
         
-        self::createWwwStructure($baseDir, $installDoctrine, $installAuth, $installApi, $installVision, $installSecure);
+        self::createWwwStructure($baseDir, $installDoctrine, $installAuth, $installApi, $installVision, $installSecure, null, $useTailwind);
         self::createDockerFiles($baseDir, $installDoctrine);
         
         echo "✅ Fichiers Docker créés.\n";
@@ -608,6 +669,13 @@ class Installer
 
                 $sourcePath = $file->getPathname();
                 $relativePath = $paths->relativeStagingPath($sourcePath);
+
+                // Les dépendances Node sont utilisées pour compiler les assets,
+                // mais ne doivent jamais être publiées dans le projet généré.
+                if (in_array('node_modules', explode(DIRECTORY_SEPARATOR, $relativePath), true)) {
+                    continue;
+                }
+
                 $targetPath = $paths->targetPath($relativePath);
 
                 // Une configuration locale existante reste prioritaire sur le secret
@@ -723,7 +791,8 @@ class Installer
         bool $installApi = false,
         bool $installVision = false,
         bool $installSecure = false,
-        ?TemplateRepository $templates = null
+        ?TemplateRepository $templates = null,
+        bool $useTailwind = false
     ): void
     {
         $templates ??= new TemplateRepository(dirname(__DIR__) . '/templates/installer');
@@ -751,9 +820,10 @@ class Installer
         
         self::moveExistingFiles($baseDir, $wwwDir);
         self::createHtaccess($publicDir);
-        self::createHeaderTemplate($templatesDir, $installVision, $templates);
+        self::createHeaderTemplate($templatesDir, $installVision, $templates, $useTailwind);
         self::createFooterTemplate($templatesDir, $templates);
-        self::createHomeView($homeDir, $installVision, $templates);
+        self::createHomeView($homeDir, $installVision, $templates, $useTailwind);
+        self::createFrontendAssets($wwwDir, $useTailwind);
         self::createWwwDirectories($wwwDir);
         self::createConfigDatabase($wwwDir, $installDoctrine);
         if ($installAuth) {
@@ -914,7 +984,210 @@ class Installer
         // Fixer les permissions pour Linux (après création de tous les dossiers)
         self::fixPermissions($wwwDir, true);
     }
-    
+
+    private static function createFrontendAssets(string $baseDir, bool $useTailwind): void
+    {
+        $stylesDir = $baseDir . '/assets/styles';
+        $publicAssetsDir = $baseDir . '/public/assets';
+
+        $directories = [$publicAssetsDir];
+        if ($useTailwind) {
+            $directories[] = $stylesDir;
+        }
+
+        foreach ($directories as $directory) {
+            if (!is_dir($directory) && !mkdir($directory, 0755, true) && !is_dir($directory)) {
+                throw new \RuntimeException("Impossible de créer {$directory}.");
+            }
+        }
+
+        if ($useTailwind) {
+            $sourceCss = <<<'CSS'
+@import "tailwindcss";
+
+/* Les templates de l'application contiennent les classes utilisées par Tailwind. */
+@source "../../views";
+@source "../../src";
+@source not "../../public";
+CSS;
+
+            self::writeGeneratedFile($stylesDir . '/app.css', $sourceCss . "\n");
+            self::writeGeneratedFile($baseDir . '/postcss.config.mjs', <<<'JS'
+export default {
+  plugins: {
+    "@tailwindcss/postcss": {},
+  },
+};
+JS
+            . "\n");
+            self::writeGeneratedFile($baseDir . '/package.json', self::generateFrontendPackageJson(basename($baseDir)));
+
+            $npm = self::createNpmRunner();
+            [$installOutput, $installReturnCode] = $npm->run(
+                $baseDir,
+                ['install', '--no-audit', '--no-fund', '--no-interaction']
+            );
+            if ($installReturnCode !== 0) {
+                throw new \RuntimeException(
+                    "Échec de l'installation des dépendances frontend:\n" . implode("\n", $installOutput)
+                );
+            }
+
+            [$buildOutput, $buildReturnCode] = $npm->run($baseDir, ['run', 'build']);
+            if ($buildReturnCode !== 0) {
+                throw new \RuntimeException(
+                    "Échec de la compilation Tailwind CSS:\n" . implode("\n", $buildOutput)
+                );
+            }
+
+            echo "✅ Tailwind CSS 4 installé et compilé.\n";
+            return;
+        }
+
+        $classicCss = <<<'CSS'
+:root {
+    color-scheme: light;
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    color: #1f2937;
+    background: #f3f4f6;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    min-width: 320px;
+}
+
+.site-body {
+    min-height: 100vh;
+    background: #f3f4f6;
+}
+
+.app-container {
+    width: min(100% - 2rem, 64rem);
+    margin: 0 auto;
+    padding: 2rem 0;
+}
+
+.page-card {
+    max-width: 56rem;
+    margin: 0 auto;
+    padding: 2rem;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.75rem;
+    box-shadow: 0 10px 25px rgb(15 23 42 / 0.08);
+}
+
+.page-title {
+    margin: 0 0 1rem;
+    color: #1f2937;
+    font-size: clamp(2rem, 5vw, 2.25rem);
+    line-height: 1.1;
+}
+
+.page-lead {
+    margin: 0 0 1.5rem;
+    color: #4b5563;
+    font-size: 1.25rem;
+}
+
+.notice {
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    color: #1d4ed8;
+    background: #eff6ff;
+    border-left: 0.25rem solid #3b82f6;
+    border-radius: 0.25rem;
+}
+
+.cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+    gap: 1rem;
+}
+
+.card {
+    padding: 1rem;
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+}
+
+.card h2 {
+    margin: 0 0 0.5rem;
+    color: #1f2937;
+    font-size: 1rem;
+}
+
+.card-list {
+    margin: 0;
+    padding-left: 1.25rem;
+    color: #4b5563;
+    font-size: 0.875rem;
+    line-height: 1.6;
+}
+
+.flash-wrapper {
+    position: fixed;
+    z-index: 50;
+    top: 1rem;
+    right: 1rem;
+    width: min(calc(100% - 2rem), 28rem);
+}
+
+.flash {
+    margin-bottom: 0.75rem;
+    padding: 1rem;
+    border-left: 0.25rem solid;
+    border-radius: 0.5rem;
+    box-shadow: 0 10px 25px rgb(15 23 42 / 0.12);
+}
+
+.flash--success {
+    color: #166534;
+    background: #f0fdf4;
+    border-color: #22c55e;
+}
+
+.flash--error {
+    color: #991b1b;
+    background: #fef2f2;
+    border-color: #ef4444;
+}
+CSS;
+
+        self::writeGeneratedFile($publicAssetsDir . '/app.css', $classicCss . "\n");
+        echo "✅ Fichiers CSS classiques créés.\n";
+    }
+
+    private static function generateFrontendPackageJson(string $projectName): string
+    {
+        self::validateProjectName($projectName);
+        $normalizedName = trim((string) preg_replace('/[^a-z0-9]+/i', '-', strtolower($projectName)), '-');
+
+        $package = [
+            'name' => $normalizedName . '-frontend',
+            'private' => true,
+            'type' => 'module',
+            'scripts' => [
+                'build' => 'postcss assets/styles/app.css -o public/assets/app.css --env production',
+                'watch' => 'postcss assets/styles/app.css -o public/assets/app.css --watch',
+            ],
+            'devDependencies' => [
+                '@tailwindcss/postcss' => '^4.3.0',
+                'postcss' => '^8.5.0',
+                'postcss-cli' => '^11.0.0',
+                'tailwindcss' => '^4.3.0',
+            ],
+        ];
+
+        return json_encode($package, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n";
+    }
+
     private static function createBootstrapServices(string $baseDir, bool $requiresDatabase = false): void
     {
         $serviceDir = $baseDir . '/src/Service';
@@ -1489,6 +1762,7 @@ PHP;
     {
         $content = <<<'GITIGNORE'
 /vendor
+/node_modules
 /.env
 /.env.local
 /.env.*.local
@@ -1506,14 +1780,24 @@ GITIGNORE;
     private static function createHomeView(
         string $homeDir,
         bool $useVision = false,
-        ?TemplateRepository $templates = null
+        ?TemplateRepository $templates = null,
+        bool $useTailwind = false
     ): void
     {
         $templates ??= new TemplateRepository(dirname(__DIR__) . '/templates/installer');
-        $template = $useVision
-            ? 'profiles/vision/views/home/index.html.vis'
-            : 'profiles/base/views/home/index.html.php';
-        self::writeGeneratedFile($homeDir . '/' . basename($template), $templates->read($template));
+        if ($useVision) {
+            $template = $useTailwind
+                ? 'profiles/vision/views/home/index.html.vis'
+                : 'profiles/vision/views/home/index.classic.html.vis';
+            $target = 'index.html.vis';
+        } else {
+            $template = $useTailwind
+                ? 'profiles/base/views/home/index.html.php'
+                : 'profiles/base/views/home/index.classic.html.php';
+            $target = 'index.html.php';
+        }
+
+        self::writeGeneratedFile($homeDir . '/' . $target, $templates->read($template));
     }
     
     private static function setupLocal(
@@ -1522,12 +1806,13 @@ GITIGNORE;
         bool $installApi = false,
         bool $installVision = false,
         bool $installSecure = false,
-        ?string $baseDir = null
+        ?string $baseDir = null,
+        bool $useTailwind = false
     ): void
     {
         echo "\n💻 Configuration locale...\n";
         $baseDir ??= self::getProjectRoot();
-        self::createLocalStructure($baseDir, $installDoctrine, $installAuth, $installApi, $installVision, $installSecure);
+        self::createLocalStructure($baseDir, $installDoctrine, $installAuth, $installApi, $installVision, $installSecure, null, $useTailwind);
         echo "✅ Configuration locale prête.\n";
     }
     
@@ -1538,7 +1823,8 @@ GITIGNORE;
         bool $installApi = false,
         bool $installVision = false,
         bool $installSecure = false,
-        ?TemplateRepository $templates = null
+        ?TemplateRepository $templates = null,
+        bool $useTailwind = false
     ): void
     {
         $templates ??= new TemplateRepository(dirname(__DIR__) . '/templates/installer');
@@ -1549,7 +1835,8 @@ GITIGNORE;
             $installApi,
             $installVision,
             $installSecure,
-            $templates
+            $templates,
+            $useTailwind
         );
         self::createLocalEnvironment($baseDir, $installDoctrine, $installApi);
 
@@ -1563,7 +1850,8 @@ GITIGNORE;
         bool $installApi = false,
         bool $installVision = false,
         bool $installSecure = false,
-        ?TemplateRepository $templates = null
+        ?TemplateRepository $templates = null,
+        bool $useTailwind = false
     ): void
     {
         $templates ??= new TemplateRepository(dirname(__DIR__) . '/templates/installer');
@@ -1579,9 +1867,10 @@ GITIGNORE;
         }
 
         self::createHtaccess($publicDir);
-        self::createHeaderTemplate($templatesDir, $installVision, $templates);
+        self::createHeaderTemplate($templatesDir, $installVision, $templates, $useTailwind);
         self::createFooterTemplate($templatesDir, $templates);
-        self::createHomeView($homeDir, $installVision, $templates);
+        self::createHomeView($homeDir, $installVision, $templates, $useTailwind);
+        self::createFrontendAssets($baseDir, $useTailwind);
         self::createLocalDirectories($baseDir);
         self::createConfigDatabase($baseDir, $installDoctrine);
         if ($installAuth) {
@@ -3078,13 +3367,20 @@ PHP;
     private static function createHeaderTemplate(
         string $templatesDir,
         bool $useVision = false,
-        ?TemplateRepository $templates = null
+        ?TemplateRepository $templates = null,
+        bool $useTailwind = false
     ): void
     {
         $templates ??= new TemplateRepository(dirname(__DIR__) . '/templates/installer');
-        $template = $useVision
-            ? 'profiles/vision/views/_templates/_header.html.vis'
-            : 'environments/common/views/_templates/_header.html.php';
+        if ($useVision) {
+            $template = $useTailwind
+                ? 'profiles/vision/views/_templates/_header.html.vis'
+                : 'profiles/vision/views/_templates/_header.classic.html.vis';
+        } else {
+            $template = $useTailwind
+                ? 'environments/common/views/_templates/_header.html.php'
+                : 'environments/common/views/_templates/_header.classic.html.php';
+        }
 
         self::writeGeneratedFile(
             $templatesDir . '/_header.html.php',
@@ -3338,7 +3634,8 @@ BASH;
         bool $hasAuth = false,
         bool $hasApi = false,
         bool $hasVision = false,
-        bool $hasSecure = false
+        bool $hasSecure = false,
+        bool $useTailwind = false
     ): void
     {
         echo "\n";
@@ -3365,6 +3662,7 @@ BASH;
 
         echo '🔧 Mode: ' . ($useDocker ? 'Docker' : 'local') . "\n";
         echo '🧩 Profils: ' . implode(', ', $profiles) . "\n";
+        echo '🎨 Styles: ' . ($useTailwind ? 'Tailwind CSS 4' : 'CSS classique') . "\n";
         echo "🔐 Les secrets sont générés dans les fichiers .env : ne les commitez pas.\n";
         echo "\n";
         echo "📝 Prochaines étapes:\n";
@@ -3383,6 +3681,12 @@ BASH;
             echo "   3. (Linux) Fixez les permissions: ./fix-permissions.sh\n";
             echo "   4. Lancez votre serveur: php -S localhost:8000 -t public\n";
             echo "   5. Visitez http://localhost:8000\n";
+        }
+
+        if ($useTailwind) {
+            echo "   🎨 Tailwind: npm run watch (développement) ou npm run build (production)\n";
+        } else {
+            echo "   🎨 Styles: modifiez public/assets/app.css\n";
         }
         
         echo "\n";

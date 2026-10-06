@@ -66,6 +66,7 @@ Deux fichiers `.env` seront automatiquement générés :
 - **Installer l'API ?** - Ajoute `php-api`, Doctrine, une entité `Product` et les routes CRUD `/api/products`
 - **Installer Vision ?** - Ajoute `php-vision` et génère des templates `.html.vis` à la place des templates PHP
 - **Activer le profil sécurisé ?** - Enregistre la validation des requêtes, la limitation de débit, les en-têtes de sécurité et la compression gzip
+- **Utiliser Tailwind CSS 4 ?** - Installe Tailwind via PostCSS et génère `public/assets/app.css` ; sinon, un fichier CSS classique est créé
 
 Répondez simplement `y` pour oui ou `N` pour non (par défaut).
 
@@ -74,6 +75,24 @@ Le profil sécurisé utilise uniquement les middlewares déjà fournis par Core/
 Le profil API n'autorise aucune origine cross-origin par défaut. Définissez `API_CORS_ORIGINS` dans `.env` avec une liste d'origines séparées par des virgules si un client navigateur doit utiliser CORS ; les routes API sont exclues de CSRF.
 
 **L'autoloader est automatiquement régénéré** après l'installation, votre application est donc prête à fonctionner immédiatement !
+
+### 🎨 Choix CSS
+
+Si Tailwind CSS 4 est choisi, l'installateur vérifie la présence de Node.js et
+npm, installe `tailwindcss`, `@tailwindcss/postcss`, `postcss` et
+`postcss-cli`, puis compile les classes utilisées par les vues. Le projet
+contient alors `package.json`, `package-lock.json`, `postcss.config.mjs`,
+`assets/styles/app.css` et `public/assets/app.css`.
+
+Commandes disponibles dans le projet généré :
+
+```bash
+npm run watch  # développement
+npm run build  # production
+```
+
+Si Tailwind est refusé, le projet utilise `public/assets/app.css` comme fichier
+CSS classique, sans dépendance Node obligatoire.
 
 ## ⚡ Démarrage rapide
 
