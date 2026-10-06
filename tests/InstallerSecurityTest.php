@@ -311,6 +311,31 @@ class InstallerSecurityTest extends TestCase
         }
     }
 
+    public function testStagedDockerPublicationCleansTheProjectRoot(): void
+    {
+        $baseDir = sys_get_temp_dir() . '/php-skeleton-docker-publish-' . bin2hex(random_bytes(6));
+        mkdir($baseDir, 0755, true);
+        mkdir($baseDir . '/public', 0755, true);
+        file_put_contents($baseDir . '/public/old.php', 'old');
+
+        $stagingDir = $this->reflection->getMethod('createInstallationStagingDirectory')->invoke(null);
+        mkdir($stagingDir . '/www/public', 0755, true);
+        file_put_contents($stagingDir . '/www/public/index.php', '<?php echo "ok";');
+
+        try {
+            $this->reflection->getMethod('publishInstallationStaging')->invoke(
+                null,
+                new InstallPaths($baseDir, $stagingDir, true)
+            );
+
+            self::assertFileExists($baseDir . '/www/public/index.php');
+            self::assertFileDoesNotExist($baseDir . '/public/old.php');
+        } finally {
+            $this->removeDirectory($stagingDir);
+            $this->removeDirectory($baseDir);
+        }
+    }
+
     public function testComposerFailureLeavesFinalDirectoryUntouched(): void
     {
         $baseDir = sys_get_temp_dir() . '/php-skeleton-composer-failure-' . bin2hex(random_bytes(6));

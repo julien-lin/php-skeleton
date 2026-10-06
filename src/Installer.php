@@ -655,7 +655,7 @@ class Installer
                     $directoryBackups[$path] = $backupPath;
                 }
 
-                self::cleanupRootFiles($baseDir);
+                self::cleanupRootFiles($paths->projectRoot);
             }
         } catch (\Throwable $exception) {
             foreach (array_reverse($createdFiles) as $createdFile) {

@@ -5,6 +5,13 @@ Tous les changements notables de ce projet seront documentés dans ce fichier.
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/),
 et ce projet adhère à [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [1.6.2] - 2026-10-06
+
+### Corrections
+
+- Correction de la publication Docker du staging, qui utilisait une variable inexistante après la régénération de l'autoloader.
+- Ajout d'un test de non-régression couvrant la publication Docker.
+
 ## [1.6.1] - 2026-10-05
 
 ### 📝 Documentation
