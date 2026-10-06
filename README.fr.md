@@ -1,4 +1,4 @@
-# PHP Skeleton v1.6.4
+# PHP Skeleton v1.6.5
 
 [🇬🇧 Lire en anglais](README.md) | [🇫🇷 Lire en français](README.fr.md)
 
@@ -373,8 +373,9 @@ MYSQL_PASSWORD=app_password
 - Composer
 - Docker (optionnel, pour la configuration Docker)
 
-## 🆕 Nouveautés dans v1.6.4
+## 🆕 Nouveautés dans v1.6.5
 
+- ✅ Le healthcheck Apache utilise une requête `GET` compatible avec l'endpoint `/health`
 - ✅ Les scripts d'initialisation MariaDB utilisent maintenant une syntaxe shell POSIX compatible
 - ✅ Les images Docker installent `libonig-dev` pour compiler correctement l'extension `mbstring`
 - ✅ Correction de la publication du staging Docker après l'installation

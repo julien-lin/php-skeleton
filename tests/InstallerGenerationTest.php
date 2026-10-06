@@ -846,6 +846,8 @@ SQL);
         self::assertStringNotContainsString('mariadb:', $compose);
         self::assertStringNotContainsString('depends_on:', $compose);
         self::assertStringContainsString('http://localhost/health', $compose);
+        self::assertStringContainsString('--output-document=/dev/null', $compose);
+        self::assertStringNotContainsString('--spider', $compose);
 
         $containerNames->setValue(null, ['apache' => 'apache_test', 'mariadb' => 'mariadb_test']);
         $this->invoke($reflection, 'createDockerCompose', $this->projectDir, true);

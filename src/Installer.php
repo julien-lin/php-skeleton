@@ -2267,7 +2267,7 @@ services:
       - app_network
 {$dependsOn}
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--output-document=/dev/null", "http://localhost/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -2363,7 +2363,7 @@ services:
       - app_network
 {$dependsOn}
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--output-document=/dev/null", "http://localhost/health"]
       interval: 30s
       timeout: 10s
       retries: 3

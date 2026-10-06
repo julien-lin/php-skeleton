@@ -5,6 +5,13 @@ Tous les changements notables de ce projet seront documentés dans ce fichier.
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/),
 et ce projet adhère à [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [1.6.5] - 2026-10-06
+
+### Corrections
+
+- Correction du healthcheck Apache : `wget --spider` envoyait une requête `HEAD` refusée par `/health` avec une réponse `405`.
+- Le healthcheck utilise désormais une requête `GET` avec sortie ignorée.
+
 ## [1.6.4] - 2026-10-06
 
 ### Corrections
