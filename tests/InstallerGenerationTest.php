@@ -915,6 +915,16 @@ SQL);
         self::assertStringContainsString("APP_DEBUG=0", $productionEnv);
     }
 
+    public function testDatabaseScriptsUsePosixShellOptions(): void
+    {
+        foreach (['backup.sh', 'restore.sh'] as $script) {
+            $content = (string) file_get_contents(__DIR__ . '/../db/' . $script);
+
+            self::assertStringContainsString('set -eu', $content);
+            self::assertStringNotContainsString('pipefail', $content);
+        }
+    }
+
     private function invoke(ReflectionClass $reflection, string $method, mixed ...$arguments): mixed
     {
         return $reflection->getMethod($method)->invoke(null, ...$arguments);
